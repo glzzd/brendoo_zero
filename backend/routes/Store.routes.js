@@ -9,7 +9,8 @@ const {
     deleteStoreController,
     bulkDeleteStoresController,
     deleteEndpointController,
-    updateEndpointController
+    updateEndpointController,
+    getAllProductsOfCategoryController
 } = require("../controllers/Store.controller");
 const authMiddleware = require("../middlewares/authMiddleware");
 
@@ -56,5 +57,8 @@ router.delete("/:storeId/endpoint/:endpointId", authMiddleware, deleteEndpointCo
 
 // PUT /api/v1/store/:storeId/endpoint/:endpointId - Endpoint yenilə (Authentication tələb olunur)
 router.put("/:storeId/endpoint/:endpointId", authMiddleware, updateEndpointController);
+
+// GET /api/v1/store/category/:categoryName - Kateqoriya üzrə məhsulları gətir (Public)
+router.get("/category/:categoryName", getAllProductsOfCategoryController);
 
 module.exports = router;

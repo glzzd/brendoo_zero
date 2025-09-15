@@ -1,7 +1,7 @@
 // API endpoints configuration
 
 // Base URL from environment variables
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000/api/v1';
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:5001/api/v1';
 
 // Auth endpoints
 export const AUTH_ENDPOINTS = {
@@ -16,6 +16,14 @@ export const AUTH_ENDPOINTS = {
 export const USER_ENDPOINTS = {
   GET_PROFILE: `${API_BASE_URL}/user/profile`,
   UPDATE_PROFILE: `${API_BASE_URL}/user/profile`
+};
+
+export const STORE_ENDPOINTS = {
+  GET_ALL_STORES: `${API_BASE_URL}/store`,
+  CREATE_STORE: `${API_BASE_URL}/store`,
+  UPDATE_STORE: (id) => `${API_BASE_URL}/store/${id}`,
+  DELETE_STORE: (id) => `${API_BASE_URL}/store/${id}`,
+  GET_STORE_BY_ID: (id) => `${API_BASE_URL}/store/${id}`
 };
 
 // Export base URL for direct use if needed

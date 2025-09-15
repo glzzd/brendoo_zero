@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, Fragment } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../../components/ui/card';
 import { Button } from '../../components/ui/button';
@@ -9,7 +9,7 @@ import AddEndpointModal from '../../components/AddEndpointModal';
 import EditStoreModal from '../../components/EditStoreModal';
 import apiClient from '../../utils/apiClient';
 import { STORE_CATEGORIES } from '../../const/categories';
-import { Settings, Edit, Trash2, Download, Trash } from 'lucide-react';
+import { Settings, Edit, Trash2, Download, Trash, ChevronDown, ChevronUp, Loader2 } from 'lucide-react';
 import { Checkbox } from '../../components/ui/checkbox';
 import { toast } from 'sonner';
 import {
@@ -47,6 +47,78 @@ const StoreList = () => {
     category: '',
     status: ''
   });
+  const [expandedRows, setExpandedRows] = useState([]);
+  const [loadingEndpoints, setLoadingEndpoints] = useState({});
+  const [endpointData, setEndpointData] = useState({});
+  const [categoryProducts, setCategoryProducts] = useState([]);
+  const [showCategoryProducts, setShowCategoryProducts] = useState(false);
+  const [selectedCategory, setSelectedCategory] = useState('');
+  const [loadingCategory, setLoadingCategory] = useState(false);
+
+  // Handle product click to get category products
+  const handleProductClick = async (item) => {
+    const categoryName = item.category || item.name || item.title;
+    if (!categoryName) {
+      toast.error('Məhsul kateqoriyası tapılmadı');
+      return;
+    }
+
+    setLoadingCategory(true);
+    setSelectedCategory(categoryName);
+    setShowCategoryProducts(true);
+    setCategoryProducts([]);
+    
+    try {
+      let allProducts = [];
+      
+      // Get all stores and their endpoints
+      for (const store of stores) {
+        if (store.endpoints && store.endpoints.length > 0) {
+          // Find getAllProductsOfCategory endpoint
+          const getAllProductsEndpoint = store.endpoints.find(endpoint => 
+            endpoint.name === 'getAllProductsOfCategory'
+          );
+          
+          if (getAllProductsEndpoint) {
+            try {
+              // Construct the full URL with category name (lowercase)
+            const fullUrl = `${getAllProductsEndpoint.url}${categoryName.toLowerCase()}`;
+              
+              // Make HTTP request to the store's endpoint
+              const response = await fetch(fullUrl);
+              
+              if (response.ok) {
+                const data = await response.json();
+                
+                // Add store info to each product
+                const productsWithStoreInfo = (data.products || data.data || data || []).map(product => ({
+                  ...product,
+                  storeName: store.name,
+                  storeId: store._id,
+                  storeLogo: store.logo,
+                  storeWebsite: store.website,
+                  endpointUrl: fullUrl
+                }));
+                
+                allProducts = allProducts.concat(productsWithStoreInfo);
+              }
+            } catch (fetchError) {
+              console.error(`Error fetching from ${store.name}:`, fetchError.message);
+              // Continue with other stores even if one fails
+            }
+          }
+        }
+      }
+      
+      setCategoryProducts(allProducts);
+      toast.success(`${categoryName} kateqoriyası üçün ${allProducts.length} məhsul tapıldı`);
+    } catch (error) {
+      console.error('Category products error:', error);
+      toast.error('Məhsullar gətirilərkən xəta baş verdi');
+    } finally {
+      setLoadingCategory(false);
+    }
+  };
 
   useEffect(() => {
     fetchStores(currentPage);
@@ -279,6 +351,14 @@ const StoreList = () => {
     });
   };
 
+  const toggleRowExpansion = (storeId) => {
+    setExpandedRows(prev => 
+      prev.includes(storeId) 
+        ? prev.filter(id => id !== storeId)
+        : [...prev, storeId]
+    );
+  };
+
   const exportData = (format) => {
     const selectedStoreData = stores.filter(store => selectedStores.includes(store._id));
     
@@ -505,110 +585,347 @@ const StoreList = () => {
               </thead>
               <tbody>
                 {stores.length > 0 ? (
-                  stores.map((store, index) => (
-                    <tr key={store._id} className="border-b hover:bg-gray-50 transition-colors">
-                      <td className="p-4">
-                        <Checkbox
-                          checked={selectedStores.includes(store._id)}
-                          onCheckedChange={() => handleSelectStore(store._id)}
-                          aria-label={`${store.name} seç`}
-                        />
-                      </td>
-                      <td className="p-4">{(currentPage - 1) * itemsPerPage + index + 1}</td>
-                      <td className="p-4">
-                        {store.logo ? (
-                          <img 
-                            src={store.logo} 
-                            alt={`${store.name} logo`}
-                            className="w-12 h-12 object-cover rounded-full border"
-                          />
-                        ) : (
-                          <div className="w-12 h-12 bg-gray-200 rounded-full flex items-center justify-center">
-                            <span className="text-gray-500 text-xs">Logo</span>
-                          </div>
-                        )}
-                      </td>
-                      <td className="p-4 font-medium">{store.name}</td>
-                      <td className="p-4">
-                        <span className="px-2 py-1 bg-blue-100 text-blue-800 rounded-full text-sm">
-                          {store.category}
-                        </span>
-                      </td>
-                      <td className="p-4">
-                        <div className="relative inline-block w-full max-w-[120px]">
-                           <select
-                             value={store.status}
-                             onChange={(e) => updateStoreStatus(store._id, e.target.value)}
-                             className={`appearance-none w-full px-3 py-1.5 pr-8 rounded-lg text-sm font-medium cursor-pointer border transition-all duration-200 hover:shadow-md focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-                               store.status === 'active' 
-                                 ? 'bg-green-50 text-green-700 border-green-200 hover:bg-green-100' 
-                                 : 'bg-red-50 text-red-700 border-red-200 hover:bg-red-100'
-                             }`}
-                             style={{
-                               colorScheme: 'light'
-                             }}
-                           >
-                             <option value="active" style={{ backgroundColor: 'white', color: 'black' }}>Aktiv</option>
-                             <option value="inactive" style={{ backgroundColor: 'white', color: 'black' }}>Deaktiv</option>
-                           </select>
-                           <div className="absolute inset-y-0 right-1 flex items-center pointer-events-none">
-                             <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                             </svg>
-                           </div>
-                         </div>
-                      </td>
-                      <td className="p-4">
-                        {store.website ? (
-                          <a 
-                            href={store.website.startsWith('http') ? store.website : `https://${store.website}`}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="text-blue-600 hover:text-blue-800 underline"
-                          >
-                            {store.website}
-                          </a>
-                        ) : (
-                          <span className="text-gray-400">-</span>
-                        )}
-                      </td>
-                      <td className="p-4 text-gray-600">{formatDate(store.createdAt)}</td>
-                      <td className="p-4">
-                        <div className="flex gap-2">
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => openEndpointModal(store)}
-                            className="text-blue-600 hover:text-blue-700 p-2"
-                            title="Endpoint əlavə et"
-                          >
-                            <Settings className="h-4 w-4" />
-                          </Button>
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => openEditModal(store._id)}
-                            className="p-2"
-                            title="Redaktə et"
-                          >
-                            <Edit className="h-4 w-4" />
-                          </Button>
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            className="text-red-600 hover:text-red-700 p-2"
-                            onClick={() => setDeletingStoreId(store._id)}
-                            title="Sil"
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
-                        </div>
-                      </td>
-                    </tr>
-                  ))
+                  <>
+                    {stores.map((store, index) => (
+                      <Fragment key={store._id}>
+                        <tr className="border-b hover:bg-gray-50 transition-colors">
+                           <td className="p-4">
+                             <div className="flex items-center gap-2">
+                               <Button
+                                 variant="ghost"
+                                 size="sm"
+                                 onClick={() => toggleRowExpansion(store._id)}
+                                 className="p-1 h-6 w-6"
+                                 title="Ətraflı məlumat"
+                               >
+                                 {expandedRows.includes(store._id) ? (
+                                   <ChevronUp className="h-4 w-4" />
+                                 ) : (
+                                   <ChevronDown className="h-4 w-4" />
+                                 )}
+                               </Button>
+                               <Checkbox
+                                 checked={selectedStores.includes(store._id)}
+                                 onCheckedChange={() => handleSelectStore(store._id)}
+                                 aria-label={`${store.name} seç`}
+                               />
+                             </div>
+                           </td>
+                          <td className="p-4">{(currentPage - 1) * itemsPerPage + index + 1}</td>
+                          <td className="p-4">
+                            {store.logo ? (
+                              <img 
+                                src={store.logo} 
+                                alt={`${store.name} logo`}
+                                className="w-5 h-5 object-cover rounded-full border"
+                              />
+                            ) : (
+                              <div className="w-5 h-5 bg-gray-200 rounded-full flex items-center justify-center">
+                                <span className="text-gray-500 text-xs">Logo</span>
+                              </div>
+                            )}
+                          </td>
+                          <td className="p-4 font-medium">{store.name}</td>
+                          <td className="p-4">
+                            <span className="px-2 py-1 bg-blue-100 text-blue-800 rounded-full text-sm">
+                              {store.category}
+                            </span>
+                          </td>
+                          <td className="p-4">
+                            <div className="relative inline-block w-full max-w-[120px]">
+                               <select
+                                 value={store.status}
+                                 onChange={(e) => updateStoreStatus(store._id, e.target.value)}
+                                 className={`appearance-none w-full px-3 py-1.5 pr-8 rounded-lg text-sm font-medium cursor-pointer border transition-all duration-200 hover:shadow-md focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                                   store.status === 'active' 
+                                     ? 'bg-green-50 text-green-700 border-green-200 hover:bg-green-100' 
+                                     : 'bg-red-50 text-red-700 border-red-200 hover:bg-red-100'
+                                 }`}
+                                 style={{
+                                   colorScheme: 'light'
+                                 }}
+                               >
+                                 <option value="active" style={{ backgroundColor: 'white', color: 'black' }}>Aktiv</option>
+                                 <option value="inactive" style={{ backgroundColor: 'white', color: 'black' }}>Deaktiv</option>
+                               </select>
+                               <div className="absolute inset-y-0 right-1 flex items-center pointer-events-none">
+                                 <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                                 </svg>
+                               </div>
+                             </div>
+                          </td>
+                          <td className="p-4">
+                            {store.website ? (
+                              <a 
+                                href={store.website.startsWith('http') ? store.website : `https://${store.website}`}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="text-blue-600 hover:text-blue-800 underline"
+                              >
+                                {store.website}
+                              </a>
+                            ) : (
+                              <span className="text-gray-400">-</span>
+                            )}
+                          </td>
+                          <td className="p-4 text-gray-600">{formatDate(store.createdAt)}</td>
+                          <td className="p-4">
+                             <div className="flex gap-2">
+                               <Button
+                                 variant="outline"
+                                 size="sm"
+                                 onClick={() => openEndpointModal(store)}
+                                 className="text-blue-600 hover:text-blue-700 p-2"
+                                 title="Endpoint əlavə et"
+                               >
+                                 <Settings className="h-4 w-4" />
+                               </Button>
+                               <Button
+                                 variant="outline"
+                                 size="sm"
+                                 onClick={() => openEditModal(store._id)}
+                                 className="p-2"
+                                 title="Redaktə et"
+                               >
+                                 <Edit className="h-4 w-4" />
+                               </Button>
+                               <Button
+                                 variant="outline"
+                                 size="sm"
+                                 className="text-red-600 hover:text-red-700 p-2"
+                                 onClick={() => setDeletingStoreId(store._id)}
+                                 title="Sil"
+                               >
+                                 <Trash2 className="h-4 w-4" />
+                               </Button>
+                             </div>
+                           </td>
+                        </tr>
+                        {expandedRows.includes(store._id) && (
+                           <tr className="bg-gradient-to-r from-blue-50 to-indigo-50 border-l-4 border-blue-400">
+                             <td colSpan={9} className="p-6">
+                               <div className="bg-white rounded-lg shadow-sm border p-6 space-y-6">
+                                
+                                 
+                                 
+                                 
+                                 {store.endpoints && store.endpoints.length > 0 && (
+                                   <div className="space-y-4">
+                                     <div className="flex items-center justify-between">
+                                       <h5 className="font-semibold text-lg text-gray-700 flex items-center gap-2">
+                                         <Settings className="h-5 w-5 text-blue-500" />
+                                         API Endpointləri ({store.endpoints.length})
+                                       </h5>
+                                     </div>
+                                     <div className="grid gap-4">
+                                       {store.endpoints.map((endpoint, idx) => (
+                                         <div key={idx} className="bg-gray-50 border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow">
+                                           <div className="flex items-center justify-between mb-3">
+                                             <h6 className="font-medium text-gray-800">{endpoint.name}</h6>
+                                             <span className={`px-2 py-1 rounded text-xs font-medium ${
+                                               endpoint.method === 'GET' ? 'bg-green-100 text-green-700' :
+                                               endpoint.method === 'POST' ? 'bg-blue-100 text-blue-700' :
+                                               endpoint.method === 'PUT' ? 'bg-yellow-100 text-yellow-700' :
+                                               endpoint.method === 'DELETE' ? 'bg-red-100 text-red-700' :
+                                               'bg-gray-100 text-gray-700'
+                                             }`}>
+                                               {endpoint.method}
+                                             </span>
+                                           </div>
+                                           <div className="flex items-center gap-2 mb-3">
+                                             <code className="bg-white px-3 py-1 rounded border text-sm font-mono text-gray-700 flex-1">
+                                               {endpoint.url}
+                                             </code>
+                                             <Button
+                                                size="sm"
+                                                className="bg-green-500 hover:bg-green-600 text-white px-4 py-1 text-xs flex items-center gap-2 disabled:opacity-50"
+                                                disabled={loadingEndpoints[`${store._id}-${endpoint.url}`]}
+                                                onClick={async () => {
+                                                   const endpointKey = `${store._id}-${endpoint.url}`;
+                                                   try {
+                                                     setLoadingEndpoints(prev => ({ ...prev, [endpointKey]: true }));
+                                                     
+                                                     // URL-i düzgün formalaşdır
+                                                     let apiUrl = endpoint.url;
+                                                     if (!apiUrl.startsWith('http')) {
+                                                       apiUrl = `http://192.168.0.103:7258${apiUrl}`;
+                                                     }
+                                                     
+                                                     // Store parametrini əlavə et
+                                                     const url = new URL(apiUrl);
+                                                     url.searchParams.set('store', store.name);
+                                                     
+                                                     const response = await fetch(url.toString(), {
+                                                       method: endpoint.method || 'GET',
+                                                       headers: {
+                                                         'Content-Type': 'application/json',
+                                                       },
+                                                     });
+                                                     
+                                                     if (!response.ok) {
+                                                       throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                                                     }
+                                                     
+                                                     const data = await response.json();
+                                                     console.log('Endpoint response:', data);
+                                                     setEndpointData(prev => ({ ...prev, [endpointKey]: data }));
+                                                     toast.success(`${endpoint.name || 'Endpoint'} uğurla işlədi!`);
+                                                   } catch (error) {
+                                                     console.error('Endpoint error:', error);
+                                                     toast.error(`Endpoint xətası: ${error.message}`);
+                                                   } finally {
+                                                     setLoadingEndpoints(prev => ({ ...prev, [endpointKey]: false }));
+                                                   }
+                                                 }}
+                                              >
+                                                {loadingEndpoints[`${store._id}-${endpoint.url}`] ? (
+                                                  <>
+                                                    <Loader2 className="w-4 h-4 animate-spin" />
+                                                    Yüklənir...
+                                                  </>
+                                                ) : (
+                                                  'Başlat'
+                                                )}
+                                              </Button>
+                                           </div>
+                                           {endpoint.description && (
+                                             <p className="text-sm text-gray-600 mt-2">{endpoint.description}</p>
+                                           )}
+                                           {endpointData[`${store._id}-${endpoint.url}`] && (
+                                             <div className="mt-4 p-4 bg-gray-50 rounded-lg">
+                                               <div className="flex items-center justify-between mb-3">
+                                                 <h4 className="font-medium text-gray-900">Nəticələr</h4>
+                                                 <span className="text-sm text-gray-500">
+                                                   {Array.isArray(endpointData[`${store._id}-${endpoint.url}`]) 
+                                                     ? endpointData[`${store._id}-${endpoint.url}`].length 
+                                                     : 1} məhsul
+                                                 </span>
+                                               </div>
+                                               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 max-h-96 overflow-y-auto">
+                                                 {(Array.isArray(endpointData[`${store._id}-${endpoint.url}`]) 
+                                                   ? endpointData[`${store._id}-${endpoint.url}`] 
+                                                   : [endpointData[`${store._id}-${endpoint.url}`]]
+                                                 ).map((item, itemIndex) => (
+                                                   <div 
+                                                     key={itemIndex} 
+                                                     className="bg-gradient-to-br from-white to-gray-50 rounded-xl shadow-lg border border-gray-100 p-6 hover:shadow-xl hover:scale-105 transition-all duration-300 hover:border-blue-200 cursor-pointer"
+                                                     onClick={() => handleProductClick(item)}
+                                                   >
+                                                     {(item.image || item.logo || item.img) && (
+                                                          <div className="mb-6 flex justify-center">
+                                                              <div className="w-24 h-24 bg-gradient-to-br from-blue-50 to-indigo-100 rounded-2xl shadow-md border-2 border-white p-4 flex items-center justify-center overflow-hidden hover:shadow-lg transition-shadow duration-300">
+                                                               <img 
+                                                                 src={(() => {
+                                                                   const imgSrc = item.image || item.logo || item.img;
+                                                                   if (!imgSrc) return '';
+                                                                   
+                                                                   // Əgər artıq data: ilə başlayırsa, olduğu kimi qaytar
+                                                                   if (imgSrc.startsWith('data:')) return imgSrc;
+                                                                   
+                                                                   // Əgər http ilə başlayırsa, olduğu kimi qaytar
+                                                                   if (imgSrc.startsWith('http')) return imgSrc;
+                                                                   
+                                                                   // Base64 string-ləri yoxla və düzgün format et
+                                                                   if (imgSrc.startsWith('/9j/') || imgSrc.startsWith('iVBOR') || imgSrc.startsWith('R0lGOD') || imgSrc.startsWith('UklGR') || imgSrc.match(/^[A-Za-z0-9+/=]+$/)) {
+                                                                     return `data:image/jpeg;base64,${imgSrc}`;
+                                                                   }
+                                                                   
+                                                                   return imgSrc;
+                                                                 })()} 
+                                                                 alt={item.name || item.title || 'Logo'}
+                                                                 className="max-w-full max-h-full object-contain"
+                                                                 onError={(e) => {
+                                                                   console.log('Image load error:', e.target.src);
+                                                                   e.target.src = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNjQiIGhlaWdodD0iNjQiIHZpZXdCb3g9IjAgMCA2NCA2NCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPHJlY3Qgd2lkdGg9IjY0IiBoZWlnaHQ9IjY0IiBmaWxsPSIjRjlGQUZCIi8+CjxwYXRoIGQ9Ik0yNCAyOEg0MFYzNkgyNFYyOFoiIGZpbGw9IiNEMUQ1REIiLz4KPHBhdGggZD0iTTI4IDMwSDM2VjM0SDI4VjMwWiIgZmlsbD0iIzlDQTNBRiIvPgo8L3N2Zz4K';
+                                                                   e.target.onerror = null;
+                                                                 }}
+                                                               />
+                                                             </div>
+                                                           </div>
+                                                       )}
+                                                     <div className="space-y-3">
+                                                       {item.name && (
+                                                         <h1 className="font-bold text-gray-900 text-lg line-clamp-2 text-center leading-tight">
+                                                           {item.name}
+                                                         </h1>
+                                                       )}
+                                                       {item.title && !item.name && (
+                                                         <h5 className="font-bold text-gray-900 text-base line-clamp-2 text-center leading-tight">
+                                                           {item.title}
+                                                         </h5>
+                                                       )}
+                                                       {item.price && (
+                                                         <p className="text-emerald-600 font-bold text-xl text-center">
+                                                           {item.price}
+                                                         </p>
+                                                       )}
+                                                       <div className="flex flex-wrap justify-center gap-2 mt-4">
+                                                         {item.brand && (
+                                                           <span className="inline-flex items-center bg-gradient-to-r from-purple-500 to-purple-600 text-white text-xs font-medium px-3 py-1.5 rounded-full shadow-sm">
+                                                             {item.brand}
+                                                           </span>
+                                                         )}
+                                                         {item.category && (
+                                                           <span className="inline-flex items-center bg-gradient-to-r from-blue-500 to-blue-600 text-white text-xs font-medium px-3 py-1.5 rounded-full shadow-sm">
+                                                             {item.category}
+                                                           </span>
+                                                         )}
+                                                       </div>
+                                                       {item.url && (
+                                                         <div className="mt-4">
+                                                           <a 
+                                                             href={item.url} 
+                                                             target="_blank" 
+                                                             rel="noopener noreferrer"
+                                                             className="inline-flex items-center justify-center w-full bg-gradient-to-r from-indigo-500 to-purple-600 hover:from-indigo-600 hover:to-purple-700 text-white font-medium text-sm px-4 py-2.5 rounded-lg transition-all duration-300 shadow-md hover:shadow-lg transform hover:-translate-y-0.5"
+                                                           >
+                                                             <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                                                             </svg>
+                                                             Məhsula bax
+                                                           </a>
+                                                         </div>
+                                                       )}
+                                                       {item.description && (
+                                                         <p className="text-gray-600 text-xs line-clamp-3">
+                                                           {item.description}
+                                                         </p>
+                                                       )}
+                                                     </div>
+                                                   </div>
+                                                 ))}
+                                               </div>
+                                             </div>
+                                           )}
+                                         </div>
+                                       ))}
+                                     </div>
+                                   </div>
+                                 )}
+                                 
+                                 {(!store.endpoints || store.endpoints.length === 0) && (
+                                   <div className="text-center py-8 bg-gray-50 rounded-lg border-2 border-dashed border-gray-300">
+                                     <Settings className="h-12 w-12 text-gray-400 mx-auto mb-3" />
+                                     <p className="text-gray-500 mb-4">Hələ heç bir endpoint əlavə edilməyib</p>
+                                     <Button
+                                       onClick={() => openEndpointModal(store)}
+                                       className="bg-blue-500 hover:bg-blue-600 text-white"
+                                     >
+                                       İlk Endpoint-i Əlavə Et
+                                     </Button>
+                                   </div>
+                                 )}
+                               </div>
+                             </td>
+                           </tr>
+                         )}
+                      </Fragment>
+                    ))}
+                  </>
                 ) : (
                   <tr>
-                    <td colSpan="8" className="p-8 text-center text-gray-500">
+                    <td colSpan={9} className="p-8 text-center text-gray-500">
                       {searchTerm ? 'Axtarış nəticəsi tapılmadı' : 'Hələ heç bir mağaza əlavə edilməyib'}
                     </td>
                   </tr>
@@ -710,8 +1027,280 @@ const StoreList = () => {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Category Products Modal */}
+      {showCategoryProducts && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg max-w-6xl w-full max-h-[90vh] overflow-hidden">
+            <div className="p-6 border-b border-gray-200 flex justify-between items-center">
+              <h2 className="text-2xl font-bold text-gray-900">
+                {selectedCategory} - Kateqoriya Məhsulları
+                <span className="ml-2 text-sm font-normal text-gray-500">
+                  ({categoryProducts.length} məhsul)
+                </span>
+              </h2>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  setShowCategoryProducts(false);
+                  setCategoryProducts([]);
+                  setSelectedCategory('');
+                }}
+              >
+                Bağla
+              </Button>
+            </div>
+            
+            <div className="p-6 overflow-y-auto max-h-[calc(90vh-120px)]">
+              {loadingCategory ? (
+                <div className="flex justify-center items-center py-12">
+                  <Loader2 className="h-8 w-8 animate-spin text-blue-500" />
+                  <span className="ml-2 text-gray-600">Məhsullar yüklənir...</span>
+                </div>
+              ) : categoryProducts.length > 0 ? (
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+                  {categoryProducts.map((product, index) => {
+                    // Şəkilləri topla
+                    const images = [];
+                    if (product.image) images.push(product.image);
+                    if (product.logo && product.logo !== product.image) images.push(product.logo);
+                    if (product.img && product.img !== product.image && product.img !== product.logo) images.push(product.img);
+                    if (product.images && Array.isArray(product.images)) {
+                      product.images.forEach(img => {
+                        if (!images.includes(img)) images.push(img);
+                      });
+                    }
+                    
+                    return (
+                      <ProductCard key={index} product={product} images={images} />
+                    );
+                  })}
+                </div>
+              ) : (
+                <div className="text-center py-12">
+                  <div className="text-gray-400 text-lg">Bu kateqoriyada məhsul tapılmadı</div>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+      
+      {/* Product Card Component */}
+      {showCategoryProducts && (
+        <ProductCard />
+      )}
     </div>
   );
 };
+
+// Product Card Component
+const ProductCard = ({ product, images }) => {
+  const [currentImageIndex, setCurrentImageIndex] = useState(0);
+  
+  // imageUrl arrayindən şəkilləri al
+  const productImages = product?.imageUrl || images || [];
+  
+  const formatImageSrc = (imgSrc) => {
+    if (!imgSrc) return '';
+    // URL-dəki backtick və boşluqları təmizlə
+    const cleanUrl = imgSrc.toString().trim().replace(/^["'`\s]+|["'`\s]+$/g, '');
+    if (cleanUrl.startsWith('data:')) return cleanUrl;
+    if (cleanUrl.startsWith('http')) return cleanUrl;
+    if (cleanUrl.startsWith('/9j/') || cleanUrl.startsWith('iVBOR') || cleanUrl.startsWith('R0lGOD') || cleanUrl.startsWith('UklGR') || cleanUrl.match(/^[A-Za-z0-9+/=]+$/)) {
+      return `data:image/jpeg;base64,${cleanUrl}`;
+    }
+    return cleanUrl;
+  };
+  
+  // Mövcud ölçüləri və bitmiş ölçüləri ayır
+  const availableSizes = product?.sizes?.filter(size => size.onStock) || [];
+  const outOfStockSizes = product?.sizes?.filter(size => !size.onStock) || [];
+  
+  return (
+    <div className="bg-white rounded-2xl shadow-xl border border-gray-200 overflow-hidden hover:shadow-2xl transition-all duration-300 transform hover:-translate-y-1">
+      {/* Şəkil Carousel */}
+      {productImages && productImages.length > 0 && (
+        <div className="relative h-72 bg-gradient-to-br from-gray-50 to-gray-100">
+          <img 
+            src={formatImageSrc(productImages[currentImageIndex])}
+            alt={product?.name || 'Məhsul'}
+            className="w-full h-full object-cover"
+            onError={(e) => {
+              e.target.src = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNjQiIGhlaWdodD0iNjQiIHZpZXdCb3g9IjAgMCA2NCA2NCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPHJlY3Qgd2lkdGg9IjY0IiBoZWlnaHQ9IjY0IiBmaWxsPSIjRjlGQUZCIi8+CjxwYXRoIGQ9Ik0yNCAyOEg0MFYzNkgyNFYyOFoiIGZpbGw9IiNEMUQ1REIiLz4KPHBhdGggZD0iTTI4IDMwSDM2VjM0SDI4VjMwWiIgZmlsbD0iIzlDQTNBRiIvPgo8L3N2Zz4K';
+              e.target.onerror = null;
+            }}
+          />
+          
+          {/* Carousel Navigation */}
+          {productImages.length > 1 && (
+            <>
+              <button 
+                onClick={() => setCurrentImageIndex(prev => prev === 0 ? productImages.length - 1 : prev - 1)}
+                className="absolute left-3 top-1/2 transform -translate-y-1/2 bg-black/60 hover:bg-black/80 text-white rounded-full p-3 transition-all duration-200 shadow-lg"
+              >
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+                </svg>
+              </button>
+              <button 
+                onClick={() => setCurrentImageIndex(prev => prev === productImages.length - 1 ? 0 : prev + 1)}
+                className="absolute right-3 top-1/2 transform -translate-y-1/2 bg-black/60 hover:bg-black/80 text-white rounded-full p-3 transition-all duration-200 shadow-lg"
+              >
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                </svg>
+              </button>
+              
+              {/* Dots Indicator */}
+              <div className="absolute bottom-3 left-1/2 transform -translate-x-1/2 flex space-x-2">
+                {productImages.map((_, idx) => (
+                  <button
+                    key={idx}
+                    onClick={() => setCurrentImageIndex(idx)}
+                    className={`w-3 h-3 rounded-full transition-all duration-200 shadow-sm ${
+                      idx === currentImageIndex ? 'bg-white scale-110' : 'bg-white/60 hover:bg-white/80'
+                    }`}
+                  />
+                ))}
+              </div>
+            </>
+          )}
+        </div>
+      )}
+      
+      {/* Məhsul məlumatları */}
+      <div className="p-6">
+        <div className="space-y-4">
+          {/* Məhsul adı və brend */}
+          <div>
+            {product?.name && (
+              <h3 className="text-xl font-bold text-gray-900 mb-1">
+                {product.name}
+              </h3>
+            )}
+            {product?.brand && (
+              <p className="text-blue-600 font-semibold text-sm uppercase tracking-wide">
+                {product.brand}
+              </p>
+            )}
+          </div>
+          
+          {/* Qiymət */}
+          {product?.price && (
+            <div className="flex items-center space-x-3">
+              {product?.discountedPrice ? (
+                <>
+                  <span className="text-3xl font-bold text-red-600">
+                    {product.discountedPrice} AZN
+                  </span>
+                  <span className="text-lg text-gray-400 line-through">
+                    {product.price} AZN
+                  </span>
+                  <span className="bg-red-100 text-red-600 px-2 py-1 rounded-full text-xs font-bold">
+                    -{Math.round(((product.price - product.discountedPrice) / product.price) * 100)}%
+                  </span>
+                </>
+              ) : (
+                <span className="text-3xl font-bold text-green-600">
+                  {product.price} AZN
+                </span>
+              )}
+            </div>
+          )}
+          
+          {/* Təsvir */}
+          {product?.description && (
+            <p className="text-gray-600 text-sm leading-relaxed">
+              {product.description}
+            </p>
+          )}
+          
+          {/* Rənglər */}
+          {product?.colors && product.colors.length > 0 && (
+            <div>
+              <h4 className="text-sm font-semibold text-gray-700 mb-2">Mövcud rənglər:</h4>
+              <div className="flex flex-wrap gap-2">
+                {product.colors.map((color, colorIndex) => (
+                  <span key={colorIndex} className="bg-blue-50 text-blue-700 px-3 py-1 rounded-full text-xs font-medium border border-blue-200">
+                    {color}
+                  </span>
+                ))}
+              </div>
+            </div>
+          )}
+          
+          {/* Ölçülər */}
+          {product?.sizes && product.sizes.length > 0 && (
+            <div>
+              <h4 className="text-sm font-semibold text-gray-700 mb-2">Ölçülər:</h4>
+              <div className="flex flex-wrap gap-2">
+                {availableSizes.map((size, sizeIndex) => (
+                  <span key={sizeIndex} className="bg-green-50 text-green-700 px-3 py-1 rounded-lg text-sm font-medium border border-green-200 flex items-center">
+                    {size.sizeName}
+                    <svg className="w-3 h-3 ml-1" fill="currentColor" viewBox="0 0 20 20">
+                      <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                    </svg>
+                  </span>
+                ))}
+                {outOfStockSizes.map((size, sizeIndex) => (
+                  <span key={sizeIndex} className="bg-gray-100 text-gray-400 px-3 py-1 rounded-lg text-sm line-through border border-gray-200">
+                    {size.sizeName}
+                  </span>
+                ))}
+              </div>
+              {availableSizes.length === 0 && (
+                <p className="text-red-500 text-sm font-medium">Bütün ölçülər bitib</p>
+              )}
+            </div>
+          )}
+          
+          {/* Mağaza məlumatları */}
+          <div className="border-t pt-4 mt-4">
+            {(product?.storeName || product?.storeInfo?.name) && (
+              <div className="mb-2">
+                <span className="text-sm text-gray-500">Mağaza:</span>
+                <span className="ml-2 text-sm font-semibold text-gray-800">
+                  {product.storeName || product.storeInfo?.name}
+                </span>
+              </div>
+            )}
+            {(product?.storeAddress || product?.storeInfo?.address) && (
+              <div className="mb-3">
+                <span className="text-sm text-gray-500">Ünvan:</span>
+                <span className="ml-2 text-sm text-gray-700">
+                  {product.storeAddress || product.storeInfo?.address}
+                </span>
+              </div>
+            )}
+          </div>
+          
+          {/* Əlaqə düyməsi */}
+          {(product?.storePhone || product?.phone || product?.contact || product?.storeInfo?.phone) && (
+            <button 
+              onClick={() => {
+                const phone = product.storePhone || product.phone || product.contact || product.storeInfo?.phone;
+                if (phone) {
+                  window.open(`tel:${phone}`, '_self');
+                }
+              }}
+              className="w-full bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white font-semibold py-3 px-6 rounded-xl transition-all duration-200 transform hover:scale-105 shadow-lg hover:shadow-xl"
+            >
+              <div className="flex items-center justify-center space-x-2">
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" />
+                </svg>
+                <span>📞 {product.storePhone || product.phone || product.contact || product.storeInfo?.phone}</span>
+              </div>
+            </button>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+};
+
+
 
 export default StoreList;

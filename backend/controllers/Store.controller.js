@@ -37,7 +37,6 @@ const addStoreController = async (req, res) => {
 
 const getAllStoresController = async (req, res) => {
     try {
-        console.log("getAllStoresController called");
         const { page = 1, limit = 5, category, status, sort, name, date } = req.query;
         
         const filters = {};
@@ -54,7 +53,6 @@ const getAllStoresController = async (req, res) => {
             };
         }
         
-        console.log("Filters:", filters);
         
         // Handle sorting
         let sortOptions = { createdAt: -1 }; // default sort
@@ -74,11 +72,10 @@ const getAllStoresController = async (req, res) => {
             sort: sortOptions
         };
         
-        console.log("Options:", options);
+
         
         const stores = await getAllStoresService(filters, options);
         
-        console.log("Stores retrieved:", stores);
         
         res.status(200).json({
             success: true,
@@ -353,6 +350,82 @@ const bulkDeleteStoresController = async (req, res) => {
     }
 };
 
+const getAllProductsOfCategoryController = async (req, res) => {
+    try {
+        const { categoryName } = req.params;
+        
+        if (!categoryName) {
+            return res.status(400).json({
+                success: false,
+                message: "Kateqoriya adı tələb olunur"
+            });
+        }
+
+        // Find stores that have endpoints
+        const stores = await getAllStoresService({}, {
+            populate: {
+                path: "owner",
+                select: "name email"
+            }
+        });
+
+        let allProducts = [];
+        
+        // Search through all stores and their endpoints
+        for (const store of stores.docs || stores) {
+            if (store.endpoints && store.endpoints.length > 0) {
+                // Find getAllProductsOfCategory endpoint
+                const getAllProductsEndpoint = store.endpoints.find(endpoint => 
+                    endpoint.name === 'getAllProductsOfCategory'
+                );
+                
+                if (getAllProductsEndpoint) {
+                    try {
+                        // Construct the full URL with category name
+                        const fullUrl = `${getAllProductsEndpoint.url}${categoryName}`;
+                        
+                        // Make HTTP request to the store's endpoint
+                        const response = await fetch(fullUrl);
+                        
+                        if (response.ok) {
+                            const data = await response.json();
+                            
+                            // Add store info to each product
+                            const productsWithStoreInfo = (data.products || data.data || data || []).map(product => ({
+                                ...product,
+                                storeName: store.name,
+                                storeId: store._id,
+                                storeLogo: store.logo,
+                                storeWebsite: store.website,
+                                endpointUrl: fullUrl
+                            }));
+                            
+                            allProducts = allProducts.concat(productsWithStoreInfo);
+                        }
+                    } catch (fetchError) {
+                        console.error(`Error fetching from ${store.name}:`, fetchError.message);
+                        // Continue with other stores even if one fails
+                    }
+                }
+            }
+        }
+        
+        res.status(200).json({
+            success: true,
+            message: `${categoryName} kateqoriyası üçün məhsullar tapıldı`,
+            data: allProducts,
+            count: allProducts.length
+        });
+    } catch (error) {
+        console.error("Get products by category error:", error);
+        res.status(500).json({
+            success: false,
+            message: "Kateqoriya məhsulları gətirilərkən xəta baş verdi",
+            error: error.message
+        });
+    }
+};
+
 module.exports = {
     addStoreController,
     getAllStoresController,
@@ -363,5 +436,6 @@ module.exports = {
     deleteStoreController,
     bulkDeleteStoresController,
     deleteEndpointController,
-    updateEndpointController
+    updateEndpointController,
+    getAllProductsOfCategoryController
 };

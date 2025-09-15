@@ -97,6 +97,15 @@ export const deleteStore = async (id) => {
     }
 };
 
+export const getAllProductsOfCategory = async (categoryName) => {
+    try {
+        const response = await apiClient.get(`${API_BASE_URL}/store/category/${encodeURIComponent(categoryName)}`);
+        return await response.json();
+    } catch (error) {
+        throw error;
+    }
+};
+
 // Python Scraper Upload function
 export const uploadPythonScraper = async (formData) => {
     try {

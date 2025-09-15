@@ -1,0 +1,9 @@
+{
+  "ignore": [
+    "scraped_datas/**",
+    "uploads/**/*.py",
+    "*.py",
+    "node_modules/**"
+  ],
+  "ext": "js,json"
+}

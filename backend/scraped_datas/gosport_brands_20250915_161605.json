@@ -1,0 +1,227 @@
+{
+  "scraping_date": "2025-09-15T16:16:05.959622",
+  "source_url": "https://gosport.az/brands",
+  "total_brands": 44,
+  "brands": [
+    {
+      "name": "ADIDAS",
+      "link": "https://gosport.az/brand/adidas-20",
+      "logo": "https://gosport.az/storage/brand_attachments/eRmew0LWYjwZgMx5Budk9jI9qOjOV9FYzjawwqmQ.png"
+    },
+    {
+      "name": "ANTA",
+      "link": "https://gosport.az/brand/anta-303",
+      "logo": "https://gosport.az/storage/brand_attachments/FTKfXswOaT2qQhq54xcevTS11VrCiQk9pUDhQraf.png"
+    },
+    {
+      "name": "ASICS",
+      "link": "https://gosport.az/brand/asics-12",
+      "logo": "https://gosport.az/storage/brand_attachments/ltiviNuK7dDL916McZhIctpyN2uNhzYGru5cZAJ7.png"
+    },
+    {
+      "name": "ATHLI-TECH",
+      "link": "https://gosport.az/brand/athli-tech-47",
+      "logo": "https://gosport.az/storage/brand_attachments/oDPeIoHpGC0h3QS3FTOY6BqqdidPNJywrjOX7uSQ.jpg"
+    },
+    {
+      "name": "BABOLAT",
+      "link": "https://gosport.az/brand/babolat-30",
+      "logo": "https://gosport.az/storage/brand_attachments/fEsgVLKQ12GP3lI4LjnylAJX73Yh2DIVuzAlFPnl.png"
+    },
+    {
+      "name": "BIKE ORIGINAL",
+      "link": "https://gosport.az/brand/bike-original-45",
+      "logo": "https://gosport.az/storage/brand_attachments/yk9ClDNErH1Cj4av7iafhOS6RmzRD8akMI8HMoiM.jpg"
+    },
+    {
+      "name": "BOWFLEX",
+      "link": "https://gosport.az/brand/bowflex-61",
+      "logo": "https://gosport.az/storage/brand_attachments/ccifRrBYbJH39xrifTGRXORD4mX0q1p1TbuVdS6i.png"
+    },
+    {
+      "name": "CASIO",
+      "link": "https://gosport.az/brand/casio-66",
+      "logo": "https://gosport.az/storage/brand_attachments/mef8oRhrHZc09UPyDhZfiBXgcnlMDcChsBh0S03T.png"
+    },
+    {
+      "name": "COLUMBIA",
+      "link": "https://gosport.az/brand/columbia-77",
+      "logo": "https://gosport.az/storage/brand_attachments/4K5tVsH6x1F00H9yMK4KCBfYcknWPj8T8MeENpSF.png"
+    },
+    {
+      "name": "Converse",
+      "link": "https://gosport.az/brand/converse-304",
+      "logo": "https://gosport.az/storage/brand_attachments/nOyv2KJC3KUKXjf9VVdkXo2C7kk7TrpuV0VXkIgL.png"
+    },
+    {
+      "name": "CORNILLEAU",
+      "link": "https://gosport.az/brand/cornilleau-83",
+      "logo": "https://gosport.az/storage/brand_attachments/yH87uplcLUNjm13SDo8pqfW6Gm9UhVajOvtr2wzB.png"
+    },
+    {
+      "name": "CROCS",
+      "link": "https://gosport.az/brand/crocs-89",
+      "logo": "https://gosport.az/storage/brand_attachments/9oG19DTe9zRQIHLz9hCtRr1ldJcz8HwzPQc0LR6z.png"
+    },
+    {
+      "name": "DANSKIN",
+      "link": "https://gosport.az/brand/danskin-97",
+      "logo": "https://gosport.az/storage/brand_attachments/9u6E05NBtZx7VRrO4Rcqz8zKXC7mmGOupjrwn6wm.jpg"
+    },
+    {
+      "name": "EA7",
+      "link": "https://gosport.az/brand/ea7-315",
+      "logo": "https://gosport.az/storage/brand_attachments/uYDHsPLbAcIPmiXZtOqvkYQWu6p7ivshvzpZ49H1.webp"
+    },
+    {
+      "name": "ELITE",
+      "link": "https://gosport.az/brand/elite-84",
+      "logo": "https://gosport.az/storage/brand_attachments/JyIsbL18d5tMwmkaix9fyc7IQQiBfWxFea1QBRNc.jpg"
+    },
+    {
+      "name": "GARLANDO",
+      "link": "https://gosport.az/brand/garlando-103",
+      "logo": "https://gosport.az/storage/brand_attachments/9U92xdp5hZYBmEHkCT678G7YcfbWIcP5poCZzUaD.png"
+    },
+    {
+      "name": "GO SPORT",
+      "link": "https://gosport.az/brand/go-sport-130",
+      "logo": "https://gosport.az/storage/brand_attachments/8NK53kZkfvVSnqFl8tx3ryJsMXBwILzGPXO2vIvK.png"
+    },
+    {
+      "name": "HAPO G",
+      "link": "https://gosport.az/brand/hapo-g-141",
+      "logo": "https://gosport.az/storage/brand_attachments/xPPQEfj6M9eIIf2dYUbBDMIyFjmnrKRr95uMAXWE.jpg"
+    },
+    {
+      "name": "HAVAIANAS",
+      "link": "https://gosport.az/brand/havaianas-143",
+      "logo": "https://gosport.az/storage/brand_attachments/lkn6IuIpimpBlSxRgBsZMV5AuA482f0w0th3x4dd.png"
+    },
+    {
+      "name": "JACK WOLFSKIN",
+      "link": "https://gosport.az/brand/jack-wolfskin-118",
+      "logo": "https://gosport.az/storage/brand_attachments/eMwNshVY8kjDK1tmV4Jtgszj7RVaIY2T0roCwACc.jpg"
+    },
+    {
+      "name": "JOMA",
+      "link": "https://gosport.az/brand/joma-122",
+      "logo": "https://gosport.az/storage/brand_attachments/WZLFakyO1WSn8URt79PjhO0amxMmFr7kGr5gCiss.png"
+    },
+    {
+      "name": "JORDAN",
+      "link": "https://gosport.az/brand/jordan-124",
+      "logo": "https://gosport.az/storage/brand_attachments/H3bgtKn298Q35c1GprAtUdzpFw4VRam7aqwnCsHo.png"
+    },
+    {
+      "name": "KANGUI",
+      "link": "https://gosport.az/brand/kangui-125",
+      "logo": "https://gosport.az/storage/brand_attachments/MWyTWL6XMqPQToh29Cesn9bHIglOyTDR3KgVJUIW.png"
+    },
+    {
+      "name": "LACOSTE",
+      "link": "https://gosport.az/brand/lacoste-157",
+      "logo": "https://gosport.az/storage/brand_attachments/YR61rM7785lRsOqrE5JaJ8OK3Xq1O9BGJEgv5yk0.png"
+    },
+    {
+      "name": "METAL BOXE",
+      "link": "https://gosport.az/brand/metal-boxe-178",
+      "logo": "https://gosport.az/storage/brand_attachments/2JU4IyQr9QyyiLRlxAPZIlScUs2ibcAZTKXkg56N.webp"
+    },
+    {
+      "name": "MICHELIN",
+      "link": "https://gosport.az/brand/michelin-179",
+      "logo": "https://gosport.az/storage/brand_attachments/RriQZh1FbTZCAetNvYyusqfWAvkd49EAOfwkW6iK.png"
+    },
+    {
+      "name": "NEW BALANCE",
+      "link": "https://gosport.az/brand/new-balance-156",
+      "logo": "https://gosport.az/storage/brand_attachments/9l1jbpvA2Za8Jof8gEEzWSRuOFiT7LHiHMquJY5Z.png"
+    },
+    {
+      "name": "NEW ERA",
+      "link": "https://gosport.az/brand/new-era-158",
+      "logo": "https://gosport.az/storage/brand_attachments/BcTXRW0blhB4GXdiOoGt2sQka4zhAkF9ezca0Fqa.png"
+    },
+    {
+      "name": "NEXTREME",
+      "link": "https://gosport.az/brand/nextreme-160",
+      "logo": "https://gosport.az/storage/brand_attachments/3gFcrqvjMoacQA3iYQBJa29G4APjWEtOGvKPIipm.jpg"
+    },
+    {
+      "name": "NIKE",
+      "link": "https://gosport.az/brand/nike-21",
+      "logo": "https://gosport.az/storage/brand_attachments/gLwXx7rbNo3CWKo2YAL6PIucIsRibFzJwlxhoPea.png"
+    },
+    {
+      "name": "ON RUNNING",
+      "link": "https://gosport.az/brand/on-running-311",
+      "logo": "https://gosport.az/storage/brand_attachments/owhQGhQJUYLI6hrVU1QhyBPREx6peq0k9NYoXyzC.png"
+    },
+    {
+      "name": "PERUZZO",
+      "link": "https://gosport.az/brand/peruzzo-215",
+      "logo": "https://gosport.az/storage/brand_attachments/XgF3IFhZ2USIjnXZ3mqmNB7ese32utLbl5xZGmYZ.webp"
+    },
+    {
+      "name": "PROFORM",
+      "link": "https://gosport.az/brand/proform-225",
+      "logo": "https://gosport.az/storage/brand_attachments/30XbVNusyEUgAUVclPsYEQjBhbq96oghjoxBpzuH.png"
+    },
+    {
+      "name": "PUMA",
+      "link": "https://gosport.az/brand/puma-22",
+      "logo": "https://gosport.az/storage/brand_attachments/PjPt1EgBMKhz7MTdmrLOG89TAkdeLFnmFEoTYpt0.png"
+    },
+    {
+      "name": "QUIKSILVER",
+      "link": "https://gosport.az/brand/quiksilver-189",
+      "logo": "https://gosport.az/storage/brand_attachments/fp0Bl8MMjFuZ4kFpyq85vsvn2IqHpmBeinnBhxU3.png"
+    },
+    {
+      "name": "REEBOK",
+      "link": "https://gosport.az/brand/reebok-192",
+      "logo": "https://gosport.az/storage/brand_attachments/uwG8fPf5TKiWEUSlYAknES8jvbwPirtcX7hbVEIz.png"
+    },
+    {
+      "name": "ROXY",
+      "link": "https://gosport.az/brand/roxy-196",
+      "logo": "https://gosport.az/storage/brand_attachments/yxS7ltXMVPHEHGkLee7aqw17i0fhChQYpVvNgMKT.webp"
+    },
+    {
+      "name": "SCHWINN",
+      "link": "https://gosport.az/brand/schwinn-203",
+      "logo": "https://gosport.az/storage/brand_attachments/f2SjDFD9v3lQ19ZYX71jomSp8IJKiZnB0sZvc5NY.png"
+    },
+    {
+      "name": "SCRAPPER",
+      "link": "https://gosport.az/brand/scrapper-204",
+      "logo": "https://gosport.az/storage/brand_attachments/bQvijsCj9PO8URnUt8AGEeQPIbPJ87Cu2lLriwM2.png"
+    },
+    {
+      "name": "SEATZAC",
+      "link": "https://gosport.az/brand/seatzac-208",
+      "logo": "https://gosport.az/storage/brand_attachments/r5TsvPli98NmrI6YlbZdgb1F53gt5WPVrBaug4Hk.png"
+    },
+    {
+      "name": "SHIMANO",
+      "link": "https://gosport.az/brand/shimano-232",
+      "logo": "https://gosport.az/storage/brand_attachments/tFb6QBrcoUMp6O0WZQtQGzXqJljmbFlbAoZZsX3a.jpg"
+    },
+    {
+      "name": "SKECHERS",
+      "link": "https://gosport.az/brand/skechers-248",
+      "logo": "https://gosport.az/storage/brand_attachments/z5W0sKtpx2ObBMB1jqAWkTkBfbCRtyclLEjFbS69.png"
+    },
+    {
+      "name": "TOORX",
+      "link": "https://gosport.az/brand/toorx-244",
+      "logo": "https://gosport.az/storage/brand_attachments/NNbjJaDovB4SO6AeRY5mZXbqcRLzO5F27kY2BVmk.png"
+    },
+    {
+      "name": "VANS",
+      "link": "https://gosport.az/brand/vans-305",
+      "logo": "https://gosport.az/storage/brand_attachments/khBr8jCOV26ZEjSYBLWjhs2O7Mu1mzCc4BckKbtg.png"
+    }
+  ]
+}

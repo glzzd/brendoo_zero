@@ -1390,7 +1390,7 @@ const StoreList = () => {
                   </span>
                 </div>
               ) : categoryProducts.length > 0 ? (
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
                   {categoryProducts.map((product, index) => {
                     // Şəkilləri topla
                     const images = [];
@@ -1469,10 +1469,10 @@ const ProductCard = ({ product, images }) => {
   const outOfStockSizes = product?.sizes?.filter((size) => !size.onStock) || [];
 
   return (
-    <div className="bg-white rounded-2xl shadow-xl border border-gray-200 overflow-hidden hover:shadow-2xl transition-all duration-300 transform hover:-translate-y-1">
+    <div className="bg-white rounded-lg shadow-md border border-gray-200 overflow-hidden hover:shadow-lg transition-all duration-300 flex flex-col h-full">
       {/* Şəkil Carousel */}
       {productImages && productImages.length > 0 && (
-        <div className="relative h-72 bg-gradient-to-br from-gray-50 to-gray-100">
+        <div className="relative h-40 bg-gradient-to-br from-gray-50 to-gray-100">
           <img
             src={formatImageSrc(productImages[currentImageIndex])}
             alt={product?.name || "Məhsul"}
@@ -1552,17 +1552,17 @@ const ProductCard = ({ product, images }) => {
       )}
 
       {/* Məhsul məlumatları */}
-      <div className="p-6">
-        <div className="space-y-4">
+      <div className="p-3 flex-grow flex flex-col">
+        <div className="space-y-2 flex-grow">
           {/* Məhsul adı və brend */}
           <div>
             {product?.name && (
-              <h3 className="text-xl font-bold text-gray-900 mb-1">
+              <h3 className="text-sm font-bold text-gray-900 mb-1 line-clamp-2">
                 {product.name}
               </h3>
             )}
             {product?.brand && (
-              <p className="text-blue-600 font-semibold text-sm uppercase tracking-wide">
+              <p className="text-blue-600 font-semibold text-xs uppercase tracking-wide">
                 {product.brand}
               </p>
             )}
@@ -1570,14 +1570,22 @@ const ProductCard = ({ product, images }) => {
 
           {/* Qiymət */}
           {product?.price && (
-            <div className="flex items-center space-x-3">
+            <div className="flex items-center space-x-2">
               {product?.discountedPrice ? (
                 <>
-                  <span className="text-3xl font-bold text-red-600">
-                    {product.discountedPrice} AZN
+                  <span className="text-lg font-bold text-red-600">
+                    {product.discountedPrice.toString().endsWith('00') 
+                      ? product.discountedPrice.toString().slice(0, -2) + '.' + product.discountedPrice.toString().slice(-2)
+                      : (product.discountedPrice.toString().length === 3 && !product.discountedPrice.toString().endsWith('00')
+                          ? product.discountedPrice + '.00'
+                          : product.discountedPrice)} AZN
                   </span>
-                  <span className="text-lg text-gray-400 line-through">
-                    {product.price} AZN
+                  <span className="text-sm text-gray-400 line-through">
+                    {product.price.toString().endsWith('00') 
+                      ? product.price.toString().slice(0, -2) + '.' + product.price.toString().slice(-2)
+                      : (product.price.toString().length === 3 && !product.price.toString().endsWith('00')
+                          ? product.price + '.00'
+                          : product.price)} AZN
                   </span>
                   <span className="bg-red-100 text-red-600 px-2 py-1 rounded-full text-xs font-bold">
                     -
@@ -1590,35 +1598,42 @@ const ProductCard = ({ product, images }) => {
                   </span>
                 </>
               ) : (
-                <span className="text-3xl font-bold text-green-600">
-                  {product.price} AZN
+                <span className="text-lg font-bold text-green-600">
+                  {product.price.toString().endsWith('00') 
+                    ? product.price.toString().slice(0, -2) + '.' + product.price.toString().slice(-2)
+                    : (product.price.toString().length === 3 && !product.price.toString().endsWith('00')
+                        ? product.price + '.00'
+                        : product.price)} AZN
                 </span>
               )}
             </div>
           )}
 
           {/* Təsvir */}
-          {product?.description && (
-            <p className="text-gray-600 text-sm leading-relaxed">
-              {product.description}
+          <div className="h-16 flex items-start">
+            <p className="text-gray-600 text-sm leading-relaxed line-clamp-3 w-full">
+              {product?.description || ''}
             </p>
-          )}
+          </div>
 
           {/* Rənglər */}
           {product?.colors && product.colors.length > 0 && (
             <div>
-              <h4 className="text-sm font-semibold text-gray-700 mb-2">
-                Mövcud rənglər:
+              <h4 className="text-xs font-semibold text-gray-700 mb-1">
+                Rənglər:
               </h4>
-              <div className="flex flex-wrap gap-2">
-                {product.colors.map((color, colorIndex) => (
-                  <span
-                    key={colorIndex}
-                    className="bg-blue-50 text-blue-700 px-3 py-1 rounded-full text-xs font-medium border border-blue-200"
-                  >
-                    {color}
-                  </span>
-                ))}
+              <div className="flex flex-wrap gap-1">
+                {product.colors.map((color, colorIndex) => {
+                  const hexColor = typeof color === 'object' ? color.hex : (color.startsWith('#') ? color : '#' + color);
+                  return (
+                    <div
+                      key={colorIndex}
+                      className="w-4 h-4 rounded-full border border-gray-300 shadow-sm"
+                      style={{ backgroundColor: hexColor }}
+                      title={typeof color === 'object' ? color.name : color}
+                    />
+                  );
+                })}
               </div>
             </div>
           )}
@@ -1629,7 +1644,7 @@ const ProductCard = ({ product, images }) => {
               <h4 className="text-sm font-semibold text-gray-700 mb-2">
                 Ölçülər:
               </h4>
-              <div className="flex flex-wrap gap-2">
+              <div className="flex flex-wrap gap-2 max-h-16 overflow-y-auto">
                 {availableSizes.map((size, sizeIndex) => (
                   <span
                     key={sizeIndex}
@@ -1666,25 +1681,26 @@ const ProductCard = ({ product, images }) => {
             </div>
           )}
 
-          {/* Mağaza məlumatları */}
-          <div className="border-t pt-4 mt-4">
-            {(product?.storeName || product?.storeInfo?.name) && (
-              <div className="mb-2">
-                <span className="text-sm text-gray-500">Mağaza:</span>
-                <span className="ml-2 text-sm font-semibold text-gray-800">
-                  {product.storeName || product.storeInfo?.name}
-                </span>
-              </div>
-            )}
-            {(product?.storeAddress || product?.storeInfo?.address) && (
-              <div className="mb-3">
-                <span className="text-sm text-gray-500">Ünvan:</span>
-                <span className="ml-2 text-sm text-gray-700">
-                  {product.storeAddress || product.storeInfo?.address}
-                </span>
-              </div>
-            )}
-          </div>
+        </div>
+        
+        {/* Sticky Footer - Mağaza məlumatları */}
+        <div className="border-t pt-3 mt-3 bg-gray-50">
+          {(product?.storeName || product?.storeInfo?.name) && (
+            <div className="mb-2">
+              <span className="text-sm text-gray-500">Mağaza:</span>
+              <span className="ml-2 text-sm font-semibold text-gray-800">
+                {product.storeName || product.storeInfo?.name}
+              </span>
+            </div>
+          )}
+          {(product?.storeAddress || product?.storeInfo?.address) && (
+            <div className="mb-3">
+              <span className="text-sm text-gray-500">Ünvan:</span>
+              <span className="ml-2 text-sm text-gray-700">
+                {product.storeAddress || product.storeInfo?.address}
+              </span>
+            </div>
+          )}
 
           {/* Əlaqə düyməsi */}
           {(product?.storePhone ||
@@ -1702,11 +1718,11 @@ const ProductCard = ({ product, images }) => {
                   window.open(`tel:${phone}`, "_self");
                 }
               }}
-              className="w-full bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white font-semibold py-3 px-6 rounded-xl transition-all duration-200 transform hover:scale-105 shadow-lg hover:shadow-xl"
+              className="w-full bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white font-semibold py-2 px-4 rounded-lg transition-all duration-200 shadow-md hover:shadow-lg text-sm"
             >
               <div className="flex items-center justify-center space-x-2">
                 <svg
-                  className="w-5 h-5"
+                  className="w-4 h-4"
                   fill="none"
                   stroke="currentColor"
                   viewBox="0 0 24 24"

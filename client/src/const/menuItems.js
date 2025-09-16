@@ -18,18 +18,7 @@ export const menuItems = [
     icon: Store,
     items: [
       { title: 'Mağaza siyahısı', titleEn: 'Store List', href: '/stores/list' },
-      { title: 'Yeni mağaza', titleEn: 'New Store', href: '/stores/new' },
-      { title: 'Mağaza ayarları', titleEn: 'Store Settings', href: '/stores/settings' }
-    ]
-  },
-  {
-    title: 'Scraperlər',
-    titleEn: 'Scrapers',
-    icon: Package,
-    items: [
-      { title: 'Scraper siyahısı', titleEn: 'Scraper List', href: '/scrapers/list' },
-      { title: 'Yeni scraper', titleEn: 'New Scraper', href: '/scrapers/new' },
-      { title: 'Scraper ayarları', titleEn: 'Scraper Settings', href: '/scrapers/settings' }
+      { title: 'Yeni mağaza', titleEn: 'New Store', href: '/stores/new' }
     ]
   },
   {

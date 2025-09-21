@@ -8,6 +8,8 @@ const {
   getProductsByStoreNameService
 } = require("../services/Product.service");
 
+const { syncProductsFromStoreEndpointService, syncAllStoresProductsService } = require("../services/BulkProductSync.service");
+
 const { getStoreByNameService } = require("../services/Store.service");
 
 // Add product to stock
@@ -259,6 +261,66 @@ const getProductsByStoreName = async (req, res) => {
   }
 };
 
+// Sync products from store endpoint
+const syncProductsFromStoreEndpoint = async (req, res) => {
+  try {
+    const { storeId } = req.params;
+    const { endpointIndex = 1, forceRefresh = false } = req.body;
+    const userId = req.user.id;
+
+    if (!storeId) {
+      return res.status(400).json({
+        success: false,
+        message: "Store ID tələb olunur",
+        code: "MISSING_STORE_ID"
+      });
+    }
+
+    const result = await syncProductsFromStoreEndpointService(
+      storeId, 
+      parseInt(endpointIndex), 
+      userId, 
+      forceRefresh
+    );
+
+    return res.status(200).json({
+      success: true,
+      message: result.message,
+      data: result
+    });
+  } catch (error) {
+    console.error("Error syncing products from store endpoint:", error);
+    return res.status(500).json({
+      success: false,
+      message: error.message || "Məhsul sinxronizasiyası zamanı xəta baş verdi",
+      code: "SYNC_ERROR"
+    });
+  }
+};
+
+// Sync products from all stores
+const syncAllStoresProducts = async (req, res) => {
+  try {
+    const { endpointIndex = 1 } = req.body;
+    const userId = req.user.id;
+
+    const result = await syncAllStoresProductsService(userId, parseInt(endpointIndex));
+
+    return res.status(200).json({
+      success: true,
+      message: result.message,
+      data: result
+    });
+  } catch (error) {
+    console.error("Error syncing all stores products:", error);
+    return res.status(500).json({
+      success: false,
+      message: error.message || "Bütün mağazalar üçün sinxronizasiya zamanı xəta baş verdi",
+      code: "BULK_SYNC_ERROR"
+    });
+  }
+};
+
 module.exports = {
   addProductToStock,
   getProducts,
@@ -266,5 +328,7 @@ module.exports = {
   updateProduct,
   deleteProduct,
   bulkAddProducts,
-  getProductsByStoreName
+  getProductsByStoreName,
+  syncProductsFromStoreEndpoint,
+  syncAllStoresProducts
 };

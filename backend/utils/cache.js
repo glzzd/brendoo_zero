@@ -13,7 +13,8 @@ const CACHE_KEYS = {
     PRODUCTS_BY_STORE: (storeName, page, limit, filters) => {
         const filterStr = JSON.stringify(filters || {});
         return `products:${storeName.toLowerCase()}:${page}:${limit}:${filterStr}`;
-    }
+    },
+    STORE_ENDPOINT_DATA: (storeId, endpointIndex) => `store_endpoint:${storeId}:${endpointIndex}`
 };
 
 // Cache helper functions
@@ -65,6 +66,20 @@ const cacheHelper = {
             return cache.del(storeKeys);
         } catch (error) {
             console.error('Cache clear store error:', error);
+            return false;
+        }
+    },
+
+    // Clear cache for store endpoint data
+    clearStoreEndpointCache: (storeId) => {
+        try {
+            const keys = cache.keys();
+            const endpointKeys = keys.filter(key => 
+                key.includes(`store_endpoint:${storeId}`)
+            );
+            return cache.del(endpointKeys);
+        } catch (error) {
+            console.error('Cache clear endpoint error:', error);
             return false;
         }
     }

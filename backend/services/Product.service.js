@@ -1,10 +1,145 @@
 const Product = require("../models/Product.model");
 const Store = require("../models/Store.model");
 const { cacheHelper, CACHE_KEYS } = require("../utils/cache");
+const { getStoreEndpointDataService } = require("./StoreEndpoint.service");
 
-// Add product to stock
-const addProductToStockService = async (productData, userId) => {
+// Helper function to compare product fields and detect changes
+const compareProductFields = (existingProduct, newProductData) => {
+    const changes = {};
+    const fieldsToCompare = ['name', 'brand', 'price', 'discountedPrice', 'description', 'colors', 'sizes', 'categoryName', 'imageUrl'];
+    
+    fieldsToCompare.forEach(field => {
+        if (newProductData[field] !== undefined) {
+            // Handle arrays (colors, sizes, imageUrl)
+            if (Array.isArray(existingProduct[field]) && Array.isArray(newProductData[field])) {
+                const existingSet = new Set(existingProduct[field]);
+                const newSet = new Set(newProductData[field]);
+                
+                // Check if arrays are different
+                if (existingSet.size !== newSet.size || 
+                    ![...existingSet].every(item => newSet.has(item))) {
+                    changes[field] = {
+                        old: existingProduct[field],
+                        new: newProductData[field]
+                    };
+                }
+            } 
+            // Handle regular fields
+            else if (existingProduct[field] !== newProductData[field]) {
+                changes[field] = {
+                    old: existingProduct[field],
+                    new: newProductData[field]
+                };
+            }
+        }
+    });
+    
+    return changes;
+};
+
+// Add product to stock with cache integration and smart updates
+const addProductToStockService = async (productData, userId, useCache = false, storeId = null, endpointIndex = 1) => {
   try {
+    let productsFromEndpoint = [];
+    
+    // If useCache is true, try to get products from cache first
+    if (useCache && storeId) {
+        try {
+            const endpointData = await getStoreEndpointDataService(storeId, endpointIndex);
+            productsFromEndpoint = Array.isArray(endpointData) ? endpointData : 
+                                 (endpointData.products || endpointData.data || []);
+            console.log(`Found ${productsFromEndpoint.length} products from cached endpoint data`);
+        } catch (error) {
+            console.warn(`Could not fetch endpoint data: ${error.message}`);
+        }
+    }
+    
+    // If we have products from endpoint, process them
+    if (productsFromEndpoint.length > 0) {
+        const results = [];
+        
+        for (const endpointProduct of productsFromEndpoint) {
+            try {
+                // Check if product already exists (same name, brand, and store)
+                const existingProduct = await Product.findOne({
+                    name: endpointProduct.name,
+                    brand: endpointProduct.brand,
+                    storeId: storeId
+                });
+
+                if (existingProduct) {
+                    // Compare fields and update if necessary
+                    const changes = compareProductFields(existingProduct, endpointProduct);
+                    
+                    if (Object.keys(changes).length > 0) {
+                        // Update existing product with changes
+                        Object.keys(changes).forEach(field => {
+                            existingProduct[field] = changes[field].new;
+                        });
+                        
+                        existingProduct.updatedAt = new Date();
+                        const updatedProduct = await existingProduct.save();
+                        
+                        results.push({
+                            success: true,
+                            action: 'updated',
+                            message: `Məhsul yeniləndi: ${Object.keys(changes).join(', ')} dəyişdi`,
+                            product: updatedProduct,
+                            changes: changes
+                        });
+                    } else {
+                        results.push({
+                            success: true,
+                            action: 'no_change',
+                            message: "Məhsul artıq mövcuddur və dəyişiklik yoxdur",
+                            product: existingProduct
+                        });
+                    }
+                } else {
+                    // Create new product
+                    const newProduct = new Product({
+                        ...endpointProduct,
+                        storeId: storeId,
+                        addedBy: userId
+                    });
+
+                    const savedProduct = await newProduct.save();
+                    await savedProduct.populate("storeId", "name");
+                    await savedProduct.populate("addedBy", "name email");
+
+                    results.push({
+                        success: true,
+                        action: 'created',
+                        message: "Məhsul uğurla stok-a əlavə edildi",
+                        product: savedProduct
+                    });
+                }
+            } catch (error) {
+                results.push({
+                    success: false,
+                    action: 'error',
+                    message: `Məhsul emal edilərkən xəta: ${error.message}`,
+                    product: endpointProduct
+                });
+            }
+        }
+        
+        return {
+            success: true,
+            bulk: true,
+            message: `${results.length} məhsul emal edildi`,
+            results: results,
+            summary: {
+                total: results.length,
+                created: results.filter(r => r.action === 'created').length,
+                updated: results.filter(r => r.action === 'updated').length,
+                noChange: results.filter(r => r.action === 'no_change').length,
+                errors: results.filter(r => r.action === 'error').length
+            }
+        };
+    }
+    
+    // Original single product logic
     // Check if store exists
     const store = await Store.findById(productData.storeId);
     if (!store) {
@@ -19,12 +154,33 @@ const addProductToStockService = async (productData, userId) => {
     });
 
     if (existingProduct) {
-      return {
-        success: false,
-        isDuplicate: true,
-        message: "Bu məhsul artıq stokda mövcuddur",
-        product: existingProduct
-      };
+      // Compare fields and update if necessary
+      const changes = compareProductFields(existingProduct, productData);
+      
+      if (Object.keys(changes).length > 0) {
+        // Update existing product with changes
+        Object.keys(changes).forEach(field => {
+          existingProduct[field] = changes[field].new;
+        });
+        
+        existingProduct.updatedAt = new Date();
+        const updatedProduct = await existingProduct.save();
+        
+        return {
+          success: true,
+          action: 'updated',
+          message: `Məhsul yeniləndi: ${Object.keys(changes).join(', ')} dəyişdi`,
+          product: updatedProduct,
+          changes: changes
+        };
+      } else {
+        return {
+          success: false,
+          isDuplicate: true,
+          message: "Bu məhsul artıq stokda mövcuddur və dəyişiklik yoxdur",
+          product: existingProduct
+        };
+      }
     }
 
     // Create new product

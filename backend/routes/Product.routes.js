@@ -6,7 +6,9 @@ const {
   updateProduct,
   deleteProduct,
   bulkAddProducts,
-  getProductsByStoreName
+  getProductsByStoreName,
+  syncProductsFromStoreEndpoint,
+  syncAllStoresProducts
 } = require("../controllers/Product.controller");
 const authMiddleware = require("../middlewares/authMiddleware");
 
@@ -23,6 +25,12 @@ router.post("/", addProductToStock);
 
 // POST /api/v1/products/bulk - Bulk add products (for synchronization)
 router.post("/bulk", bulkAddProducts);
+
+// POST /api/v1/products/sync/store/:storeId - Sync products from specific store endpoint
+router.post("/sync/store/:storeId", syncProductsFromStoreEndpoint);
+
+// POST /api/v1/products/sync/all - Sync products from all stores
+router.post("/sync/all", syncAllStoresProducts);
 
 // GET /api/v1/products - Get products with pagination and filtering
 router.get("/", getProducts);

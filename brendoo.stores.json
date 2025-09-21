@@ -14,7 +14,7 @@
   "endpoints": [
     {
       "name": "getAllCategories",
-      "url": "https://192.168.0.103:7258/api/v1/categories?store=gosport",
+      "url": "http://192.168.0.101:7258/api/v1/categories?store=gosport",
       "method": "GET",
       "description": "GoSport Mağazasında Mövcud Olan Bütün Brendlərin Tapılması",
       "_id": {
@@ -23,7 +23,7 @@
     },
     {
       "name": "getAllProductsOfCategory",
-      "url": "https://192.168.0.103:7258/api/v1/products?store=gosport&category=",
+      "url": "http://192.168.0.101:7258/api/v1/products?store=gosport&category=",
       "method": "GET",
       "description": "Müəyyən bir kateqoriyanın bütün məhsullarının çəkilməsi",
       "_id": {

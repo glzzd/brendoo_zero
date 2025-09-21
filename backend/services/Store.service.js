@@ -1,6 +1,7 @@
 
 
 const Store = require("../models/Store.model");
+const { cacheHelper, CACHE_KEYS } = require("../utils/cache");
 
 const addStoreService = async (storeDetails) => {
     try {
@@ -247,10 +248,38 @@ const updateEndpointInStoreService = async (storeId, endpointId, updateData) => 
     }
 };
 
+const getStoreByNameService = async (storeName) => {
+    try {
+        // Check cache first
+        const cacheKey = CACHE_KEYS.STORE_BY_NAME(storeName);
+        const cachedStore = cacheHelper.get(cacheKey);
+        if (cachedStore) {
+            return cachedStore;
+        }
+
+        // Case-insensitive search with minimal projection
+        const store = await Store.findOne({ 
+            name: { $regex: new RegExp(`^${storeName}$`, 'i') }
+        }).select('_id name').lean(); // Use lean() for better performance, only select needed fields
+        
+        if (!store) {
+            throw new Error("Mağaza tapılmadı");
+        }
+        
+        // Cache for 30 minutes
+        cacheHelper.set(cacheKey, store, 1800);
+        
+        return store;
+    } catch (error) {
+        throw new Error(`Mağaza axtarılarkən xəta: ${error.message}`);
+    }
+};
+
 module.exports = {
     addStoreService,
     getAllStoresService,
     getStoreByIdService,
+    getStoreByNameService,
     updateStoreService,
     deleteStoreService,
     bulkDeleteStoresService,

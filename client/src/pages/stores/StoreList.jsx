@@ -69,6 +69,9 @@ const StoreList = () => {
   const [showCategoryProducts, setShowCategoryProducts] = useState(false);
   const [selectedCategory, setSelectedCategory] = useState("");
   const [loadingCategory, setLoadingCategory] = useState(false);
+  const [currentStore, setCurrentStore] = useState(null);
+  const [addingCategories, setAddingCategories] = useState(false);
+  const [syncingProducts, setSyncingProducts] = useState(false);
   
 
   // Handle product click to get category products
@@ -89,6 +92,7 @@ const StoreList = () => {
     setSelectedCategory(productName);
     setShowCategoryProducts(true);
     setCategoryProducts([]);
+    setCurrentStore(store); // Store bilgisini sakla
 
     try {
       // Use endpoints[1].url and append product name
@@ -97,7 +101,7 @@ const StoreList = () => {
       
       // Format URL properly
       if (!apiUrl.startsWith("http")) {
-        apiUrl = `http://192.168.0.103:7258${apiUrl}`;
+        apiUrl = `http://192.168.0.101:7258${apiUrl}`;
       }
       
       // Append product name to the URL
@@ -109,7 +113,7 @@ const StoreList = () => {
 
       // Timeout kontrolü için AbortController
       const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 30000);
+      const timeoutId = setTimeout(() => controller.abort(), 60000);
 
       try {
         // Make HTTP request to the store's second endpoint
@@ -162,6 +166,202 @@ const StoreList = () => {
       toast.error("Məhsullar gətirilərkən xəta baş verdi");
     } finally {
       setLoadingCategory(false);
+    }
+  };
+
+  // Handle product synchronization
+  const handleSyncProducts = async () => {
+    if (!currentStore || !categoryProducts || categoryProducts.length === 0) {
+      toast.error("Senkronizasiya ediləcək məhsul tapılmadı");
+      return;
+    }
+
+    setSyncingProducts(true);
+
+    try {
+      // Transform products to match the required format
+      const transformedProducts = categoryProducts.map(product => ({
+        name: product.name || "",
+        brand: product.brand || "",
+        price: product.price || 0,
+        description: product.description || "",
+        discountedPrice: product.discountedPrice || null,
+        imageUrl: product.imageUrl || [],
+        colors: product.colors || [],
+        sizes: product.sizes || [],
+        storeId: currentStore._id,
+        categoryName: selectedCategory
+      }));
+
+      const response = await apiClient.post("http://localhost:5001/api/v1/products/bulk", {
+        products: transformedProducts,
+        storeId: currentStore._id,
+        categoryName: selectedCategory
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        console.error("API Error:", errorData);
+        toast.error(errorData.message || "Məhsullar senkronizasiya edilərkən xəta baş verdi");
+        return;
+      }
+
+      const responseData = await response.json();
+      
+      if (responseData?.success) {
+        const { success: addedCount, duplicates: duplicateCount, errors: errorCount } = responseData.results;
+        
+        if (addedCount > 0) {
+          toast.success(`${addedCount} məhsul uğurla stok-a əlavə edildi`);
+        }
+        if (duplicateCount > 0) {
+          toast.warning(`${duplicateCount} məhsul artıq stokda mövcud idi`);
+        }
+        if (errorCount > 0) {
+          toast.error(`${errorCount} məhsul əlavə edilərkən xəta baş verdi`);
+        }
+        
+        if (addedCount === 0 && duplicateCount > 0 && errorCount === 0) {
+          toast.info("Bütün məhsullar artıq stokda mövcuddur");
+        }
+      } else {
+        toast.error("Məhsullar senkronizasiya edilərkən xəta baş verdi");
+      }
+    } catch (error) {
+      console.error("Error syncing products:", error);
+      toast.error("Məhsullar senkronizasiya edilərkən xəta baş verdi");
+    } finally {
+      setSyncingProducts(false);
+    }
+  };
+
+  // Handle adding category to stock
+  const handleAddCategoryToStock = async () => {
+    if (!selectedCategory || !currentStore) {
+      toast.error("Kategori və ya mağaza məlumatı tapılmadı");
+      return;
+    }
+
+    try {
+      const response = await apiClient.post("/api/v1/category-stock", {
+        categoryName: selectedCategory,
+        storeId: currentStore._id,
+        storeName: currentStore.name
+      });
+
+      if (response.data.success) {
+        toast.success("Kategori uğurla stok-a əlavə edildi");
+      } else {
+        toast.error(response.data.message || "Kategori əlavə edilərkən xəta baş verdi");
+      }
+    } catch (error) {
+      console.error("Error adding category to stock:", error);
+      if (error.response?.data?.message) {
+        toast.error(error.response.data.message);
+      } else {
+        toast.error("Kategori əlavə edilərkən xəta baş verdi");
+      }
+    }
+  };
+
+  // Handle adding all categories to stock
+  const handleAddAllCategoriesToStock = async (store, categories) => {
+    if (!store || !categories || !Array.isArray(categories)) {
+      toast.error("Mağaza və ya kategori məlumatları tapılmadı");
+      return;
+    }
+
+    setAddingCategories(true);
+
+    // Extract unique category names
+    const uniqueCategories = [...new Set(
+      categories
+        .map(item => item.category || item.name || item.title)
+        .filter(Boolean)
+        .map(cat => cat.trim()) // Trim whitespace
+    )];
+
+    if (uniqueCategories.length === 0) {
+      toast.error("Əlavə ediləcək kategori tapılmadı");
+      setAddingCategories(false);
+      return;
+    }
+
+    const totalCategories = categories.length;
+    const duplicateCount = totalCategories - uniqueCategories.length;
+    
+    if (duplicateCount > 0) {
+      toast.info(`${totalCategories} kategoridən ${duplicateCount} təkrar kategori filtreləndi. ${uniqueCategories.length} unikal kategori əlavə ediləcək.`);
+    }
+
+    try {
+      let successCount = 0;
+      let errorCount = 0;
+      let duplicateErrorCount = 0;
+
+      for (const categoryName of uniqueCategories) {
+        try {
+          const response = await apiClient.post("http://localhost:5001/api/v1/category-stock", {
+            categoryName,
+            storeId: store._id,
+            storeName: store.name
+          });
+
+          // Check if response is ok and has data
+          if (!response.ok) {
+            const errorData = await response.json();
+            console.error(`API Error for category ${categoryName}:`, errorData);
+            
+            if (response.status === 409 || errorData?.isDuplicate) {
+              duplicateErrorCount++;
+            } else {
+              errorCount++;
+            }
+            continue;
+          }
+
+          const responseData = await response.json();
+          
+          if (responseData?.success) {
+            successCount++;
+          } else {
+            if (responseData?.isDuplicate) {
+              duplicateErrorCount++;
+            } else {
+              errorCount++;
+            }
+          }
+        } catch (error) {
+          console.error(`Network/Parse Error for category ${categoryName}:`, error);
+          
+          if (error.response?.status === 409 || error.response?.data?.isDuplicate) {
+            duplicateErrorCount++;
+          } else {
+            errorCount++;
+          }
+        }
+      }
+
+      // Show detailed success/error messages
+      if (successCount > 0) {
+        toast.success(`${successCount} kategori uğurla stok-a əlavə edildi`);
+      }
+      if (duplicateErrorCount > 0) {
+        toast.warning(`${duplicateErrorCount} kategori artıq stokda mövcud idi`);
+      }
+      if (errorCount > 0) {
+        toast.error(`${errorCount} kategori əlavə edilərkən xəta baş verdi`);
+      }
+      
+      // Summary message
+      if (successCount === 0 && duplicateErrorCount > 0 && errorCount === 0) {
+        toast.info("Bütün kategorilər artıq stokda mövcuddur");
+      }
+    } catch (error) {
+      console.error("Error adding categories to stock:", error);
+      toast.error("Kategorilər əlavə edilərkən xəta baş verdi");
+    } finally {
+      setAddingCategories(false);
     }
   };
 
@@ -929,7 +1129,7 @@ const StoreList = () => {
                                                           "http"
                                                         )
                                                       ) {
-                                                        apiUrl = `http://192.168.0.103:7258${apiUrl}`;
+                                                        apiUrl = `http://192.168.0.101:7258${apiUrl}`;
                                                       }
 
                                                       console.log('Sorgu gönderilen URL:', apiUrl);
@@ -1033,18 +1233,36 @@ const StoreList = () => {
                                                     <h4 className="font-medium text-gray-900">
                                                       Nəticələr
                                                     </h4>
-                                                    <span className="text-sm text-gray-500">
-                                                      {Array.isArray(
-                                                        endpointData[
-                                                          `${store._id}-${endpoint.url}`
-                                                        ]
-                                                      )
-                                                        ? endpointData[
+                                                    <div className="flex items-center gap-3">
+                                                      <span className="text-sm text-gray-500">
+                                                        {Array.isArray(
+                                                          endpointData[
                                                             `${store._id}-${endpoint.url}`
-                                                          ].length
-                                                        : 1}{" "}
-                                                      məhsul
-                                                    </span>
+                                                          ]
+                                                        )
+                                                          ? endpointData[
+                                                              `${store._id}-${endpoint.url}`
+                                                            ].length
+                                                          : 1}{" "}
+                                                        məhsul
+                                                      </span>
+                                                      <Button
+                                                        variant="default"
+                                                        size="sm"
+                                                        onClick={() => handleAddAllCategoriesToStock(store, endpointData[`${store._id}-${endpoint.url}`])}
+                                                        className="bg-green-600 hover:bg-green-700 text-white"
+                                                        disabled={addingCategories}
+                                                      >
+                                                        {addingCategories ? (
+                                                          <>
+                                                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                                            Əlavə edilir...
+                                                          </>
+                                                        ) : (
+                                                          "Kategorileri stok-a ekle"
+                                                        )}
+                                                      </Button>
+                                                    </div>
                                                   </div>
                                                   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 max-h-96 overflow-y-auto">
                                                     {(Array.isArray(
@@ -1362,23 +1580,44 @@ const StoreList = () => {
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-lg max-w-6xl w-full max-h-[90vh] overflow-hidden">
             <div className="p-6 border-b border-gray-200 flex justify-between items-center">
-              <h2 className="text-2xl font-bold text-gray-900">
-                {selectedCategory} - Kateqoriya Məhsulları
-                <span className="ml-2 text-sm font-normal text-gray-500">
-                  ({categoryProducts.length} məhsul)
-                </span>
-              </h2>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => {
-                  setShowCategoryProducts(false);
-                  setCategoryProducts([]);
-                  setSelectedCategory("");
-                }}
-              >
-                Bağla
-              </Button>
+              <div className="flex items-center gap-3">
+                <h2 className="text-2xl font-bold text-gray-900">
+                  {selectedCategory} - Kateqoriya Məhsulları
+                  <span className="ml-2 text-sm font-normal text-gray-500">
+                    ({categoryProducts.length} məhsul)
+                  </span>
+                </h2>
+              </div>
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="default"
+                  size="sm"
+                  disabled={syncingProducts || categoryProducts.length === 0}
+                  onClick={handleSyncProducts}
+                  className="bg-green-600 hover:bg-green-700"
+                >
+                  {syncingProducts ? (
+                    <>
+                      <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                      Senkronizasiya edilir...
+                    </>
+                  ) : (
+                    "Ürünleri stokla senkronize et"
+                  )}
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    setShowCategoryProducts(false);
+                    setCategoryProducts([]);
+                    setSelectedCategory("");
+                    setCurrentStore(null);
+                  }}
+                >
+                  Bağla
+                </Button>
+              </div>
             </div>
 
             <div className="p-6 overflow-y-auto max-h-[calc(90vh-120px)]">

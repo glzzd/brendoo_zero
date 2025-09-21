@@ -9,7 +9,8 @@ import path from "path"
 export default defineConfig({
   plugins: [tailwindcss(), react()],
   server: {
-    port: 5002,
+    port: 5003,
+    host:true,
     historyApiFallback: true,
     proxy: {
       '/api': {

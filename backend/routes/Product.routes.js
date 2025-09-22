@@ -18,10 +18,10 @@ const router = express.Router();
 router.get("/store/:storeName", getProductsByStoreName);
 
 // All other routes require authentication
-router.use(authMiddleware);
+
 
 // POST /api/v1/products - Add single product to stock
-router.post("/", addProductToStock);
+router.post("/add-products", addProductToStock);
 
 // POST /api/v1/products/bulk - Bulk add products (for synchronization)
 router.post("/bulk", bulkAddProducts);

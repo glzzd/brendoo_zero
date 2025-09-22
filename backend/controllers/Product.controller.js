@@ -1,11 +1,11 @@
 const {
-  addProductToStockService,
   getProductsService,
   getProductByIdService,
   updateProductService,
   deleteProductService,
   bulkAddProductsService,
-  getProductsByStoreNameService
+  getProductsByStoreNameService,
+  addProductsToStockService
 } = require("../services/Product.service");
 
 const { syncProductsFromStoreEndpointService, syncAllStoresProductsService } = require("../services/BulkProductSync.service");
@@ -15,45 +15,13 @@ const { getStoreByNameService } = require("../services/Store.service");
 // Add product to stock
 const addProductToStock = async (req, res) => {
   try {
-    const userId = req.user.id;
-    const productData = req.body;
+    const products = req.body; // array bekleniyor
+    const result = await addProductsToStockService(products);
 
-    // Validate required fields
-    const requiredFields = ['name', 'brand', 'price', 'storeId', 'categoryName'];
-    const missingFields = requiredFields.filter(field => !productData[field]);
-    
-    if (missingFields.length > 0) {
-      return res.status(400).json({
-        success: false,
-        message: `Tələb olunan sahələr: ${missingFields.join(', ')}`,
-        code: "MISSING_FIELDS"
-      });
-    }
-
-    const result = await addProductToStockService(productData, userId);
-
-    if (result.isDuplicate) {
-      return res.status(409).json({
-        success: false,
-        isDuplicate: true,
-        message: result.message,
-        code: "DUPLICATE_PRODUCT",
-        product: result.product
-      });
-    }
-
-    return res.status(201).json({
-      success: true,
-      message: result.message,
-      product: result.product
-    });
+    return res.status(result.success ? 201 : 400).json(result);
   } catch (error) {
-    console.error("Error adding product to stock:", error);
-    return res.status(500).json({
-      success: false,
-      message: error.message || "Məhsul əlavə edilərkən xəta baş verdi",
-      code: "INTERNAL_ERROR"
-    });
+    console.error("Controller error:", error.message);
+    return res.status(500).json({ success: false, message: "Server error" });
   }
 };
 

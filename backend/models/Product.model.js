@@ -28,6 +28,11 @@ const productSchema = new mongoose.Schema({
     required: true,
     min: 0
   },
+  priceInRubles: {
+    type: Number,
+    default: 0,
+    min: 0
+  },
   description: {
     type: String,
     trim: true,
@@ -50,29 +55,24 @@ const productSchema = new mongoose.Schema({
     type: [sizeSchema],
     default: []
   },
-  storeId: {
-    type: mongoose.Schema.Types.ObjectId,
-    ref: "Store",
-    required: true
+  storeName: {
+    type: String,
+    required: true,
+    trim: true
   },
   categoryName: {
     type: String,
     required: true,
     trim: true
-  },
-  addedBy: {
-    type: mongoose.Schema.Types.ObjectId,
-    ref: "User",
-    required: true
   }
 }, {
   timestamps: true
 });
 
 // Index for better query performance
-productSchema.index({ storeId: 1, categoryName: 1 });
-productSchema.index({ name: 1, brand: 1, storeId: 1 }, { unique: true });
-productSchema.index({ storeId: 1, createdAt: -1 }); // For store products with sorting
+productSchema.index({ storeName: 1, categoryName: 1 });
+productSchema.index({ name: 1, brand: 1, storeName: 1 }, { unique: true });
+productSchema.index({ storeName: 1, createdAt: -1 }); // For store products with sorting
 productSchema.index({ brand: 1 }); // For brand filtering
 productSchema.index({ categoryName: 1 }); // For category filtering
 

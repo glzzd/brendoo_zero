@@ -1,39 +1,23 @@
 const mongoose = require("mongoose");
 
 const CategoryStockSchema = new mongoose.Schema(
-    {
-        categoryName: {
-            type: String,
-            required: true,
-            trim: true,
-        },
-        storeName: {
-            type: String,
-            required: true,
-            trim: true,
-        },
-        storeId: {
-            type: mongoose.Schema.Types.ObjectId,
-            ref: "Store",
-            required: true,
-        },
-        addedBy: {
-            type: mongoose.Schema.Types.ObjectId,
-            ref: "User",
-            required: true,
-        },
-        status: {
-            type: String,
-            enum: ["active", "inactive"],
-            default: "active"
-        }
+  {
+    categoryName: { type: String, required: true, trim: true },
+    categoryType: { type: String, required: true, trim: true }, 
+    storeName: { type: String, required: true, trim: true }, 
+    img: { type: String, required: true, trim: true },
+    status: {
+      type: String,
+      enum: ["active", "inactive"],
+      default: "active",
     },
-    { timestamps: true }
+  },
+  { timestamps: true }
 );
 
-// Unique index - aynı mağazanın aynı kategorisi tekrar eklenemez
-CategoryStockSchema.index({ categoryName: 1, storeName: 1 }, { unique: true });
-CategoryStockSchema.index({ storeId: 1 });
-CategoryStockSchema.index({ addedBy: 1 });
+// aynı isimde kategori tekrar eklenmesin
+CategoryStockSchema.index({ categoryName: 1 }, { unique: true });
 
-module.exports = mongoose.model("CategoryStock", CategoryStockSchema);
+module.exports =
+  mongoose.models.CategoryStock ||
+  mongoose.model("CategoryStock", CategoryStockSchema);

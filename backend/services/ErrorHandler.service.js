@@ -10,7 +10,7 @@ class ErrorHandlerService {
             selector_error: { maxRetries: 1, delay: 2000, backoff: 'none' },
             navigation_error: { maxRetries: 3, delay: 3000, backoff: 'exponential' },
             memory_error: { maxRetries: 1, delay: 15000, backoff: 'none' },
-            rate_limit_error: { maxRetries: 5, delay: 30000, backoff: 'exponential' },
+            // rate_limit_error: { maxRetries: 5, delay: 30000, backoff: 'exponential' },
             captcha_error: { maxRetries: 0, delay: 0, backoff: 'none' },
             authentication_error: { maxRetries: 1, delay: 5000, backoff: 'none' },
             default: { maxRetries: 2, delay: 5000, backoff: 'linear' }

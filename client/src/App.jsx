@@ -11,6 +11,7 @@ import StoreList from './pages/stores/StoreList';
 import AddStore from './pages/stores/AddStore';
 import ScraperList from './pages/scrapers/ScraperList';
 import ScraperProducts from './pages/scrapers/ScraperProducts';
+import ProductList from './pages/stock/ProductList';
 
 // Protected Route Component
 const ProtectedRoute = ({ children }) => {
@@ -100,6 +101,17 @@ function App() {
               <ProtectedRoute>
                 <PrivateLayout>
                   <ScraperProducts />
+                </PrivateLayout>
+              </ProtectedRoute>
+            }
+          />
+          
+          <Route
+            path="/stock/products"
+            element={
+              <ProtectedRoute>
+                <PrivateLayout>
+                  <ProductList />
                 </PrivateLayout>
               </ProtectedRoute>
             }

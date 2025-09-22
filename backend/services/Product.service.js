@@ -2,8 +2,92 @@ const Product = require("../models/Product.model");
 const Store = require("../models/Store.model");
 const { cacheHelper, CACHE_KEYS } = require("../utils/cache");
 const { getStoreEndpointDataService } = require("./StoreEndpoint.service");
+const { calculatePriceInRubles } = require("../utils/priceCalculator");
 
-// Helper function to compare product fields and detect changes
+const addProductsToStockService = async (products) => {
+  try {
+    if (!Array.isArray(products) || products.length === 0) {
+      throw new Error("Geçerli ürün listesi gönderilmedi");
+    }
+
+    const results = [];
+    const errors = [];
+
+    for (const item of products) {
+      try {
+        // Tüm string alanları lowercase'e çevir
+        const productData = {
+          name: item.name?.toLowerCase().trim(),
+          brand: item.brand?.toLowerCase().trim(),
+          price: item.price,
+          priceInRubles: calculatePriceInRubles(item.price),
+          description: item.description || "",
+          discountedPrice: item.discountedPrice || null,
+          imageUrl: item.imageUrl || [],
+          colors: item.colors?.map(color => color?.toLowerCase().trim()) || [],
+          sizes: item.sizes?.map(size => ({
+            sizeName: size.sizeName?.toLowerCase().trim(),
+            onStock: size.onStock
+          })) || [],
+          storeName: item.storeName?.toLowerCase().trim(),
+          categoryName: item.categoryName?.toLowerCase().trim()
+        };
+
+        // Var olan ürünü kontrol et (lowercase karşılaştırma)
+        const existingProduct = await Product.findOne({
+          name: { $regex: new RegExp(`^${productData.name}$`, 'i') },
+          brand: { $regex: new RegExp(`^${productData.brand}$`, 'i') },
+          storeName: { $regex: new RegExp(`^${productData.storeName}$`, 'i') }
+        });
+
+        if (existingProduct) {
+          // Var olan ürünü güncelle (stok durumu değişmiş olabilir)
+          const updatedProduct = await Product.findByIdAndUpdate(
+            existingProduct._id,
+            {
+              price: productData.price,
+              priceInRubles: productData.priceInRubles,
+              description: productData.description,
+              discountedPrice: productData.discountedPrice,
+              imageUrl: productData.imageUrl,
+              colors: productData.colors,
+              sizes: productData.sizes,
+              categoryName: productData.categoryName,
+              updatedAt: new Date()
+            },
+            { new: true }
+          );
+          results.push(updatedProduct);
+        } else {
+          // Yeni ürün ekle
+          const newProduct = new Product(productData);
+          const savedProduct = await newProduct.save();
+          results.push(savedProduct);
+        }
+      } catch (itemError) {
+        errors.push({
+          item: item.name,
+          error: itemError.message
+        });
+      }
+    }
+
+    return {
+      success: true,
+      message: `${results.length} ürün işlendi (eklendi/güncellendi)`,
+      data: results,
+      errors: errors.length > 0 ? errors : undefined
+    };
+  } catch (error) {
+    console.error("Ürün ekleme hatası:", error.message);
+
+    return {
+      success: false,
+      message: "Ürün işlenirken hata oluştu",
+      error: error.message
+    };
+  }
+};
 const compareProductFields = (existingProduct, newProductData) => {
     const changes = {};
     const fieldsToCompare = ['name', 'brand', 'price', 'discountedPrice', 'description', 'colors', 'sizes', 'categoryName', 'imageUrl'];
@@ -64,7 +148,7 @@ const addProductToStockService = async (productData, userId, useCache = false, s
                 const existingProduct = await Product.findOne({
                     name: endpointProduct.name,
                     brand: endpointProduct.brand,
-                    storeId: storeId
+                    storeName: endpointProduct.storeName
                 });
 
                 if (existingProduct) {
@@ -98,14 +182,10 @@ const addProductToStockService = async (productData, userId, useCache = false, s
                 } else {
                     // Create new product
                     const newProduct = new Product({
-                        ...endpointProduct,
-                        storeId: storeId,
-                        addedBy: userId
+                        ...endpointProduct
                     });
 
                     const savedProduct = await newProduct.save();
-                    await savedProduct.populate("storeId", "name");
-                    await savedProduct.populate("addedBy", "name email");
 
                     results.push({
                         success: true,
@@ -140,22 +220,32 @@ const addProductToStockService = async (productData, userId, useCache = false, s
     }
     
     // Original single product logic
-    // Check if store exists
-    const store = await Store.findById(productData.storeId);
-    if (!store) {
-      throw new Error("Mağaza tapılmadı");
-    }
+    // Tüm string alanları lowercase'e çevir
+    const formattedProductData = {
+      ...productData,
+      name: productData.name?.toLowerCase().trim(),
+      brand: productData.brand?.toLowerCase().trim(),
+      storeName: productData.storeName?.toLowerCase().trim(),
+      categoryName: productData.categoryName?.toLowerCase().trim(),
+      colors: productData.colors?.map(color => color?.toLowerCase().trim()) || [],
+      sizes: productData.sizes?.map(size => ({
+        sizeName: size.sizeName?.toLowerCase().trim(),
+        onStock: size.onStock
+      })) || []
+    };
 
-    // Check if product already exists (same name, brand, and store)
+    // Store kontrolünü kaldırıyoruz çünkü artık storeId field'ı yok
+
+    // Check if product already exists (lowercase karşılaştırma)
     const existingProduct = await Product.findOne({
-      name: productData.name,
-      brand: productData.brand,
-      storeId: productData.storeId
+      name: { $regex: new RegExp(`^${formattedProductData.name}$`, 'i') },
+      brand: { $regex: new RegExp(`^${formattedProductData.brand}$`, 'i') },
+      storeName: { $regex: new RegExp(`^${formattedProductData.storeName}$`, 'i') }
     });
 
     if (existingProduct) {
       // Compare fields and update if necessary
-      const changes = compareProductFields(existingProduct, productData);
+      const changes = compareProductFields(existingProduct, formattedProductData);
       
       if (Object.keys(changes).length > 0) {
         // Update existing product with changes
@@ -185,13 +275,10 @@ const addProductToStockService = async (productData, userId, useCache = false, s
 
     // Create new product
     const newProduct = new Product({
-      ...productData,
-      addedBy: userId
+      ...formattedProductData
     });
 
     const savedProduct = await newProduct.save();
-    await savedProduct.populate("storeId", "name");
-    await savedProduct.populate("addedBy", "name email");
 
     return {
       success: true,
@@ -212,8 +299,8 @@ const getProductsService = async (page = 1, limit = 10, filters = {}) => {
     // Build query
     let query = {};
     
-    if (filters.storeId) {
-      query.storeId = filters.storeId;
+    if (filters.storeName) {
+      query.storeName = { $regex: filters.storeName, $options: "i" };
     }
     
     if (filters.categoryName) {
@@ -230,8 +317,6 @@ const getProductsService = async (page = 1, limit = 10, filters = {}) => {
 
     // Get products with pagination
     const products = await Product.find(query)
-      .populate("storeId", "name")
-      .populate("addedBy", "name email")
       .sort({ createdAt: -1 })
       .skip(skip)
       .limit(limit);
@@ -259,9 +344,7 @@ const getProductsService = async (page = 1, limit = 10, filters = {}) => {
 // Get product by ID
 const getProductByIdService = async (productId) => {
   try {
-    const product = await Product.findById(productId)
-      .populate("storeId", "name")
-      .populate("addedBy", "name email");
+    const product = await Product.findById(productId);
     
     if (!product) {
       throw new Error("Məhsul tapılmadı");
@@ -287,7 +370,7 @@ const updateProductService = async (productId, updateData, userId) => {
       const duplicateQuery = {
         name: updateData.name || product.name,
         brand: updateData.brand || product.brand,
-        storeId: product.storeId,
+        storeName: product.storeName,
         _id: { $ne: productId }
       };
 
@@ -297,13 +380,16 @@ const updateProductService = async (productId, updateData, userId) => {
       }
     }
 
+    // Eğer price güncelleniyor ise priceInRubles'ı da hesapla
+    if (updateData.price) {
+      updateData.priceInRubles = calculatePriceInRubles(updateData.price);
+    }
+
     const updatedProduct = await Product.findByIdAndUpdate(
       productId,
       { ...updateData, updatedAt: new Date() },
       { new: true, runValidators: true }
-    )
-      .populate("storeId", "name")
-      .populate("addedBy", "name email");
+    );
 
     return updatedProduct;
   } catch (error) {
@@ -343,10 +429,23 @@ const bulkAddProductsService = async (productsData, storeId, categoryName, userI
 
     for (const productData of productsData) {
       try {
-        const result = await addProductToStockService({
+        // String alanları lowercase'e çevir
+        const formattedProductData = {
           ...productData,
+          name: productData.name?.toLowerCase().trim(),
+          brand: productData.brand?.toLowerCase().trim(),
+          categoryName: categoryName?.toLowerCase().trim(),
+          colors: productData.colors?.map(color => color?.toLowerCase().trim()) || [],
+          sizes: productData.sizes?.map(size => ({
+            sizeName: size.sizeName?.toLowerCase().trim(),
+            onStock: size.onStock
+          })) || []
+        };
+
+        const result = await addProductToStockService({
+          ...formattedProductData,
           storeId,
-          categoryName
+          categoryName: categoryName?.toLowerCase().trim()
         }, userId);
 
         if (result.success) {
@@ -356,8 +455,8 @@ const bulkAddProductsService = async (productsData, storeId, categoryName, userI
         }
 
         results.details.push({
-          name: productData.name,
-          brand: productData.brand,
+          name: formattedProductData.name,
+          brand: formattedProductData.brand,
           status: result.success ? 'success' : (result.isDuplicate ? 'duplicate' : 'error'),
           message: result.message
         });
@@ -405,7 +504,7 @@ const getProductsByStoreNameService = async (storeName, page = 1, limit = 10, fi
         }
         
         // Build query filters
-        const query = { storeId: store._id };
+        const query = { storeName: { $regex: new RegExp(`^${store.name}$`, 'i') } };
         
         if (filters.categoryName) {
             query.categoryName = { $regex: new RegExp(filters.categoryName, 'i') };
@@ -477,7 +576,7 @@ const getProductsByStoreNameService = async (storeName, page = 1, limit = 10, fi
 };
 
 module.exports = {
-  addProductToStockService,
+  addProductsToStockService,
   getProductsService,
   getProductByIdService,
   updateProductService,

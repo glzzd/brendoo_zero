@@ -72,6 +72,8 @@ const StoreList = () => {
   const [currentStore, setCurrentStore] = useState(null);
   const [addingCategories, setAddingCategories] = useState(false);
   const [syncingProducts, setSyncingProducts] = useState(false);
+  const [storeCategories, setStoreCategories] = useState({});
+  const [loadingStoreCategories, setLoadingStoreCategories] = useState({});
   
 
   // Handle product click to get category products
@@ -637,13 +639,51 @@ const StoreList = () => {
     });
   };
 
-  const toggleRowExpansion = (storeId) => {
+  const toggleRowExpansion = async (storeId) => {
+    const isCurrentlyExpanded = expandedRows.includes(storeId);
+    
     setExpandedRows(
       (prev) =>
         prev.includes(storeId)
           ? [] // Eğer zaten açıksa kapat
           : [storeId] // Sadece bu store'u aç, diğerlerini kapat
     );
+
+    // Eğer row açılıyorsa ve henüz kategoriler yüklenmemişse, kategorileri yükle
+    if (!isCurrentlyExpanded) {
+      const store = stores.find(s => s._id === storeId);
+      if (store && !storeCategories[storeId]) {
+        await fetchStoreCategories(store.name, storeId);
+      }
+    }
+  };
+
+  // Mağaza kategorilerini getir
+  const fetchStoreCategories = async (storeName, storeId) => {
+    try {
+      setLoadingStoreCategories(prev => ({ ...prev, [storeId]: true }));
+      
+      const response = await fetch(`/api/v1/category-stock/store/${storeName.toLowerCase()}`, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      });
+
+      if (response.ok) {
+        const result = await response.json();
+        setStoreCategories(prev => ({
+          ...prev,
+          [storeId]: result.data || []
+        }));
+      } else {
+        console.error('Kategoriler yüklenirken hata:', response.statusText);
+      }
+    } catch (error) {
+      console.error('Kategoriler yüklenirken hata:', error);
+    } finally {
+      setLoadingStoreCategories(prev => ({ ...prev, [storeId]: false }));
+    }
   };
 
   const exportData = (format) => {
@@ -1137,9 +1177,7 @@ const StoreList = () => {
 
                                                       // Timeout kontrolü için AbortController
                                                       const controller = new AbortController();
-                                                      const timeoutId = setTimeout(() => {
-                                                        controller.abort();
-                                                      }, 30000); // 30 saniye timeout
+                                                      
 
                                                       const response =
                                                         await fetch(
@@ -1155,8 +1193,6 @@ const StoreList = () => {
                                                             signal: controller.signal,
                                                           }
                                                         );
-
-                                                      clearTimeout(timeoutId);
 
                                                       if (!response.ok) {
                                                         throw new Error(
@@ -1436,6 +1472,99 @@ const StoreList = () => {
                                       </div>
                                     </div>
                                   )}
+
+                                {/* CategoryStock Kategorileri Bölümü */}
+                                <div className="space-y-4 mt-6">
+                                  <div className="flex items-center justify-between">
+                                    <h5 className="font-semibold text-lg text-gray-700 flex items-center gap-2">
+                                      <svg className="h-5 w-5 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
+                                      </svg>
+                                      Mağaza Kategorileri
+                                    </h5>
+                                  </div>
+                                  
+                                  {loadingStoreCategories[store._id] ? (
+                                    <div className="flex justify-center items-center py-8">
+                                      <Loader2 className="h-6 w-6 animate-spin text-green-500" />
+                                      <span className="ml-2 text-gray-600">Kategoriler yüklənir...</span>
+                                    </div>
+                                  ) : storeCategories[store._id] && storeCategories[store._id].length > 0 ? (
+                                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                                      {storeCategories[store._id].map((category, idx) => (
+                                        <div
+                                          key={idx}
+                                          className="bg-gradient-to-br from-green-50 to-emerald-50 border border-green-200 rounded-lg p-4 hover:shadow-md transition-all duration-300 hover:border-green-300"
+                                        >
+                                          <div className="flex items-center justify-between mb-3">
+                                            <h6 className="font-medium text-gray-800 truncate">
+                                              {category.categoryName}
+                                            </h6>
+                                            <span className={`px-2 py-1 rounded text-xs font-medium ${
+                                              category.categoryType === 'brand' 
+                                                ? 'bg-blue-100 text-blue-700' 
+                                                : 'bg-purple-100 text-purple-700'
+                                            }`}>
+                                              {category.categoryType === 'brand' ? 'Brend' : 'Kateqoriya'}
+                                            </span>
+                                          </div>
+                                          
+                                          {category.img && (
+                                             <div className="mb-3 flex justify-center">
+                                               <div className="w-16 h-16 bg-white rounded-lg shadow-sm border border-gray-200 p-2 flex items-center justify-center overflow-hidden">
+                                                 <img
+                                                   src={(() => {
+                                                     const imgSrc = category.img;
+                                                     if (!imgSrc) return "";
+                                                     
+                                                     // Eğer zaten data: ile başlıyorsa (base64), olduğu gibi döndür
+                                                     if (imgSrc.startsWith('data:')) {
+                                                       return imgSrc;
+                                                     }
+                                                     
+                                                     // Eğer base64 string ise ama data: prefix'i yoksa ekle
+                                                     if (imgSrc.match(/^[A-Za-z0-9+/]+=*$/)) {
+                                                       return `data:image/jpeg;base64,${imgSrc}`;
+                                                     }
+                                                     
+                                                     // Eğer HTTP URL ise olduğu gibi döndür
+                                                     if (imgSrc.startsWith('http')) {
+                                                       return imgSrc;
+                                                     }
+                                                     
+                                                     // Diğer durumlarda base64 olarak varsay
+                                                     return `data:image/jpeg;base64,${imgSrc}`;
+                                                   })()}
+                                                   alt={category.categoryName}
+                                                   className="w-full h-full object-contain"
+                                                   onError={(e) => {
+                                                     e.target.style.display = 'none';
+                                                   }}
+                                                 />
+                                               </div>
+                                             </div>
+                                           )}
+                                          
+                                          <div className="text-xs text-gray-500 space-y-1">
+                                            <div>Mağaza: <span className="font-medium">{category.storeName}</span></div>
+                                            <div>Status: <span className={`font-medium ${category.status === 'active' ? 'text-green-600' : 'text-red-600'}`}>
+                                              {category.status === 'active' ? 'Aktiv' : 'Passiv'}
+                                            </span></div>
+                                          </div>
+                                        </div>
+                                      ))}
+                                    </div>
+                                  ) : (
+                                    <div className="text-center py-8 bg-gray-50 rounded-lg border-2 border-dashed border-gray-300">
+                                      <svg className="h-12 w-12 text-gray-400 mx-auto mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
+                                      </svg>
+                                      <p className="text-gray-500">
+                                        Bu mağaza üçün hələ heç bir kateqoriya əlavə edilməyib
+                                      </p>
+                                    </div>
+                                  )}
+                                </div>
 
                                 {(!store.endpoints ||
                                   store.endpoints.length === 0) && (

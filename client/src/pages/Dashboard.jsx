@@ -1,8 +1,9 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { useLanguage } from '../contexts/LanguageContext';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import SystemStats from '../components/SystemStats';
 import { 
   Users, 
   BarChart3, 
@@ -10,39 +11,151 @@ import {
   TrendingUp,
   Activity,
   DollarSign,
-  ShoppingCart
+  ShoppingCart,
+  Store,
+  Package,
+  Tag
 } from 'lucide-react';
+import {
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  ResponsiveContainer,
+  PieChart,
+  Pie,
+  Cell,
+  LineChart,
+  Line,
+  Area,
+  AreaChart
+} from 'recharts';
+import { API_BASE_URL } from '../const/endpoints';
 
 const Dashboard = () => {
   const { user } = useAuth();
   const { t } = useLanguage();
+  const [dashboardData, setDashboardData] = useState({
+    stores: [],
+    products: [],
+    categories: [],
+    stats: {
+      totalStores: 0,
+      totalProducts: 0,
+      totalCategories: 0,
+      activeStores: 0
+    }
+  });
+  const [loading, setLoading] = useState(true);
+
+  // Fetch dashboard data
+  useEffect(() => {
+    const fetchDashboardData = async () => {
+      try {
+        setLoading(true);
+        
+        // Fetch stores
+        const storesResponse = await fetch(`${API_BASE_URL}/store`, {
+          headers: {
+            'Authorization': `Bearer ${localStorage.getItem('token')}`
+          }
+        });
+        const storesData = await storesResponse.json();
+        
+        // Fetch products stats
+        const productsResponse = await fetch(`${API_BASE_URL}/products-stock/stats`, {
+          headers: {
+            'Authorization': `Bearer ${localStorage.getItem('token')}`
+          }
+        });
+        const productsData = await productsResponse.json();
+
+        if (storesData.success) {
+          const stores = storesData.data.docs || storesData.data;
+          const activeStores = stores.filter(store => store.status === 'active');
+          
+          // Process category data from stores
+          const categoryMap = new Map();
+          stores.forEach(store => {
+            if (store.category) {
+              categoryMap.set(store.category, (categoryMap.get(store.category) || 0) + 1);
+            }
+          });
+
+          setDashboardData({
+            stores: stores,
+            products: productsData.success ? productsData.data : [],
+            categories: Array.from(categoryMap.entries()).map(([name, count]) => ({ name, count })),
+            stats: {
+              totalStores: stores.length,
+              totalProducts: productsData.success ? (productsData.data.totalProducts || 0) : 0,
+              totalCategories: categoryMap.size,
+              activeStores: activeStores.length
+            }
+          });
+        }
+      } catch (error) {
+        console.error('Error fetching dashboard data:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchDashboardData();
+  }, []);
+
+  // Chart colors
+  const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884D8', '#82CA9D'];
+
+  // Prepare chart data
+  const storeStatusData = [
+    { name: t('Aktiv', 'Active'), value: dashboardData.stats.activeStores, color: '#00C49F' },
+    { name: t('Qeyri-aktiv', 'Inactive'), value: dashboardData.stats.totalStores - dashboardData.stats.activeStores, color: '#FF8042' }
+  ];
+
+  const categoryData = dashboardData.categories.slice(0, 6).map((cat, index) => ({
+    name: cat.name,
+    count: cat.count,
+    color: COLORS[index % COLORS.length]
+  }));
+
+  const monthlyData = [
+    { month: t('Yan', 'Jan'), stores: Math.floor(dashboardData.stats.totalStores * 0.6), products: Math.floor(dashboardData.stats.totalProducts * 0.4) },
+    { month: t('Fev', 'Feb'), stores: Math.floor(dashboardData.stats.totalStores * 0.7), products: Math.floor(dashboardData.stats.totalProducts * 0.5) },
+    { month: t('Mar', 'Mar'), stores: Math.floor(dashboardData.stats.totalStores * 0.8), products: Math.floor(dashboardData.stats.totalProducts * 0.6) },
+    { month: t('Apr', 'Apr'), stores: Math.floor(dashboardData.stats.totalStores * 0.85), products: Math.floor(dashboardData.stats.totalProducts * 0.7) },
+    { month: t('May', 'May'), stores: Math.floor(dashboardData.stats.totalStores * 0.9), products: Math.floor(dashboardData.stats.totalProducts * 0.8) },
+    { month: t('İyun', 'Jun'), stores: dashboardData.stats.totalStores, products: dashboardData.stats.totalProducts }
+  ];
 
   const stats = [
     {
-      title: t('Ümumi İstifadəçilər', 'Total Users'),
-      value: '2,543',
-      change: '+12%',
-      icon: Users,
+      title: t('Ümumi Mağazalar', 'Total Stores'),
+      value: dashboardData.stats.totalStores.toString(),
+      change: `+${dashboardData.stats.activeStores}`,
+      icon: Store,
       color: 'bg-blue-500'
     },
     {
-      title: t('Aylıq Gəlir', 'Monthly Revenue'),
-      value: '₼45,231',
-      change: '+8%',
-      icon: DollarSign,
+      title: t('Ümumi Məhsullar', 'Total Products'),
+      value: dashboardData.stats.totalProducts.toString(),
+      change: '+12%',
+      icon: Package,
       color: 'bg-green-500'
     },
     {
-      title: t('Sifarişlər', 'Orders'),
-      value: '1,234',
-      change: '+23%',
-      icon: ShoppingCart,
+      title: t('Kateqoriyalar', 'Categories'),
+      value: dashboardData.stats.totalCategories.toString(),
+      change: '+5%',
+      icon: Tag,
       color: 'bg-purple-500'
     },
     {
-      title: t('Aktivlik', 'Activity'),
-      value: '89%',
-      change: '+5%',
+      title: t('Aktiv Mağazalar', 'Active Stores'),
+      value: dashboardData.stats.activeStores.toString(),
+      change: '+8%',
       icon: Activity,
       color: 'bg-orange-500'
     }
@@ -79,7 +192,7 @@ const Dashboard = () => {
                 <div className="flex items-center justify-between">
                   <div>
                     <p className="text-sm font-medium text-muted-foreground">{stat.title}</p>
-                    <p className="text-2xl font-bold">{stat.value}</p>
+                    <p className="text-2xl font-bold">{loading ? '...' : stat.value}</p>
                     <p className="text-sm text-green-600 font-medium">{stat.change}</p>
                   </div>
                   <div className={`${stat.color} p-3 rounded-full`}>
@@ -94,11 +207,11 @@ const Dashboard = () => {
 
       {/* Content Grid */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Chart Placeholder */}
+        {/* Store Status Pie Chart */}
         <Card>
           <CardHeader>
             <div className="flex items-center justify-between">
-              <CardTitle className="text-lg">{t('Aylıq Statistika', 'Monthly Statistics')}</CardTitle>
+              <CardTitle className="text-lg">{t('Mağaza Statusu', 'Store Status')}</CardTitle>
               <Button variant="outline" size="sm">
                 <BarChart3 className="h-4 w-4 mr-2" />
                 {t('Ətraflı', 'Details')}
@@ -106,20 +219,39 @@ const Dashboard = () => {
             </div>
           </CardHeader>
           <CardContent>
-            <div className="h-64 bg-muted rounded-lg flex items-center justify-center">
-              <div className="text-center">
-                <TrendingUp className="h-12 w-12 text-muted-foreground mx-auto mb-2" />
-                <p className="text-muted-foreground">{t('Qrafik burada göstəriləcək', 'Chart will be displayed here')}</p>
+            {loading ? (
+              <div className="h-64 flex items-center justify-center">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500"></div>
               </div>
-            </div>
+            ) : (
+              <ResponsiveContainer width="100%" height={300}>
+                <PieChart>
+                  <Pie
+                    data={storeStatusData}
+                    cx="50%"
+                    cy="50%"
+                    labelLine={false}
+                    label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
+                    outerRadius={80}
+                    fill="#8884d8"
+                    dataKey="value"
+                  >
+                    {storeStatusData.map((entry, index) => (
+                      <Cell key={`cell-${index}`} fill={entry.color} />
+                    ))}
+                  </Pie>
+                  <Tooltip />
+                </PieChart>
+              </ResponsiveContainer>
+            )}
           </CardContent>
         </Card>
 
-        {/* Recent Activities */}
+        {/* Categories Bar Chart */}
         <Card>
           <CardHeader>
             <div className="flex items-center justify-between">
-              <CardTitle className="text-lg">{t('Son Fəaliyyətlər', 'Recent Activities')}</CardTitle>
+              <CardTitle className="text-lg">{t('Kateqoriyalar üzrə Mağazalar', 'Stores by Category')}</CardTitle>
               <Button variant="outline" size="sm">
                 <FileText className="h-4 w-4 mr-2" />
                 {t('Hamısını gör', 'View All')}
@@ -127,41 +259,94 @@ const Dashboard = () => {
             </div>
           </CardHeader>
           <CardContent>
-            <div className="space-y-4">
-              {recentActivities.map((activity) => (
-                <div key={activity.id} className="flex items-start space-x-3">
-                  <div className="w-2 h-2 bg-blue-500 rounded-full mt-2"></div>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium">{activity.action}</p>
-                    <p className="text-sm text-muted-foreground">{activity.user}</p>
-                    <p className="text-xs text-muted-foreground">{activity.time}</p>
-                  </div>
-                </div>
-              ))}
-            </div>
+            {loading ? (
+              <div className="h-64 flex items-center justify-center">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500"></div>
+              </div>
+            ) : (
+              <ResponsiveContainer width="100%" height={300}>
+                <BarChart data={categoryData}>
+                  <CartesianGrid strokeDasharray="3 3" />
+                  <XAxis dataKey="name" />
+                  <YAxis />
+                  <Tooltip />
+                  <Bar dataKey="count" fill="#8884d8">
+                    {categoryData.map((entry, index) => (
+                      <Cell key={`cell-${index}`} fill={entry.color} />
+                    ))}
+                  </Bar>
+                </BarChart>
+              </ResponsiveContainer>
+            )}
           </CardContent>
         </Card>
       </div>
 
-      {/* Quick Actions */}
+      {/* Monthly Growth Chart */}
       <Card>
         <CardHeader>
-          <CardTitle className="text-lg">{t('Sürətli Əməliyyatlar', 'Quick Actions')}</CardTitle>
+          <CardTitle className="text-lg">{t('Aylıq Artım', 'Monthly Growth')}</CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <Button className="h-20 flex flex-col items-center justify-center space-y-2">
-              <Users className="h-6 w-6" />
-              <span>{t('Yeni İstifadəçi', 'New User')}</span>
-            </Button>
-            <Button variant="outline" className="h-20 flex flex-col items-center justify-center space-y-2">
-              <FileText className="h-6 w-6" />
-              <span>{t('Hesabat Yarat', 'Create Report')}</span>
-            </Button>
-            <Button variant="outline" className="h-20 flex flex-col items-center justify-center space-y-2">
-              <BarChart3 className="h-6 w-6" />
-              <span>{t('Analitik', 'Analytics')}</span>
-            </Button>
+          {loading ? (
+            <div className="h-80 flex items-center justify-center">
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500"></div>
+            </div>
+          ) : (
+            <ResponsiveContainer width="100%" height={350}>
+              <LineChart data={monthlyData}>
+                <CartesianGrid strokeDasharray="3 3" />
+                <XAxis dataKey="month" />
+                <YAxis />
+                <Tooltip />
+                <Line 
+                  type="monotone" 
+                  dataKey="stores" 
+                  stroke="#8884d8" 
+                  strokeWidth={2}
+                  name={t('Mağazalar', 'Stores')}
+                />
+                <Line 
+                  type="monotone" 
+                  dataKey="products" 
+                  stroke="#82ca9d" 
+                  strokeWidth={2}
+                  name={t('Məhsullar', 'Products')}
+                />
+              </LineChart>
+            </ResponsiveContainer>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* System Statistics - MongoDB Disk Usage */}
+      <SystemStats />
+
+      {/* Recent Activities */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-lg">{t('Son Fəaliyyətlər', 'Recent Activities')}</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="space-y-4">
+            {dashboardData.stores.slice(0, 5).map((store, index) => (
+              <div key={index} className="flex items-start space-x-3">
+                <div className="w-2 h-2 bg-blue-500 rounded-full mt-2"></div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-medium">{store.name}</p>
+                  <p className="text-sm text-muted-foreground">{t('Kateqoriya', 'Category')}: {store.category || t('Təyin edilməyib', 'Not specified')}</p>
+                  <p className="text-xs text-muted-foreground">
+                    <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                      store.status === 'active' 
+                        ? 'bg-green-100 text-green-800' 
+                        : 'bg-red-100 text-red-800'
+                    }`}>
+                      {store.status === 'active' ? t('Aktiv', 'Active') : t('Qeyri-aktiv', 'Inactive')}
+                    </span>
+                  </p>
+                </div>
+              </div>
+            ))}
           </div>
         </CardContent>
       </Card>

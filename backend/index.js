@@ -27,6 +27,7 @@ app.use("/api/v1/auth", allRoutes.authRoutes);
 app.use("/api/v1/store", allRoutes.storeRoutes);
 app.use("/api/v1/category-stock", allRoutes.categoryStockRoutes);
 app.use("/api/v1/products-stock", allRoutes.productRoutes);
+app.use("/api/v1/system", allRoutes.systemRoutes);
 
 // Debug route
 app.get('/test', (req, res) => {

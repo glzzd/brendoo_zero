@@ -26,9 +26,7 @@ export const menuItems = [
     titleEn: 'Stock',
     icon: Package,
     items: [
-      { title: 'Məhsul siyahısı', titleEn: 'Product List', href: '/stock/products' },
-      { title: 'Stok idarəsi', titleEn: 'Stock Management', href: '/stock/management' },
-      { title: 'Inventar', titleEn: 'Inventory', href: '/stock/inventory' }
+      { title: 'Məhsul siyahısı', titleEn: 'Product List', href: '/stock/products' }
     ]
   }
 ];

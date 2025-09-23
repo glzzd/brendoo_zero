@@ -87,7 +87,19 @@ const formatPriceWithCurrency = (price, currency = 'AZN') => {
     return `0.00 ${currency}`;
   }
   
-  return `${price.toFixed(2)} ${currency}`;
+  // Əgər fiyatın sonunda sıfır yoxdursa, .00 əlavə et
+  let formattedPrice = price.toString();
+  if (!formattedPrice.includes('.')) {
+    formattedPrice += '.00';
+  } else {
+    // Əgər ondalık hissə 1 rəqəmdirsə, sıfır əlavə et
+    const decimalPart = formattedPrice.split('.')[1];
+    if (decimalPart.length === 1) {
+      formattedPrice += '0';
+    }
+  }
+  
+  return `${formattedPrice} ${currency}`;
 };
 
 module.exports = {

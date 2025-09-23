@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { Search, Plus, Filter, Edit, Trash2, Eye, Package, Store, Tag, Calendar, User } from 'lucide-react';
+import { Search, Plus, Filter, Eye, Package, Store, Tag, Calendar, User } from 'lucide-react';
 import { toast } from 'sonner';
 import { useLanguage } from '../../contexts/LanguageContext';
+import ProductDetailModal from '../../components/modals/ProductDetailModal';
 
 const ProductList = () => {
   const { language } = useLanguage();
@@ -21,6 +22,8 @@ const ProductList = () => {
   });
   const [stores, setStores] = useState([]);
   const [showFilters, setShowFilters] = useState(false);
+  const [selectedProduct, setSelectedProduct] = useState(null);
+  const [isProductModalOpen, setIsProductModalOpen] = useState(false);
 
   // Fetch products
   const fetchProducts = async (page = 1, searchQuery = '', filterParams = {}) => {
@@ -33,7 +36,7 @@ const ProductList = () => {
         ...filterParams
       });
 
-      const response = await fetch(`/api/v1/products-stock?${params}`, {
+      const response = await fetch(`http://localhost:5001/api/v1/products-stock?${params}`, {
         headers: {
           'Authorization': `Bearer ${localStorage.getItem('token')}`
         }
@@ -58,7 +61,7 @@ const ProductList = () => {
   // Fetch stores for filter dropdown
   const fetchStores = async () => {
     try {
-      const response = await fetch('/api/v1/store', {
+      const response = await fetch('http://localhost:5001/api/v1/store', {
         headers: {
           'Authorization': `Bearer ${localStorage.getItem('token')}`
         }
@@ -102,32 +105,16 @@ const ProductList = () => {
     fetchProducts(newPage, searchTerm, filters);
   };
 
-  // Delete product
-  const handleDeleteProduct = async (productId) => {
-    if (!window.confirm('Bu məhsulu silmək istədiyinizə əminsiniz?')) {
-      return;
-    }
+  // Handle product view
+  const handleViewProduct = (product) => {
+    setSelectedProduct(product);
+    setIsProductModalOpen(true);
+  };
 
-    try {
-      const response = await fetch(`/api/v1/products/${productId}`, {
-        method: 'DELETE',
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem('token')}`
-        }
-      });
-
-      const data = await response.json();
-      
-      if (data.success) {
-        toast.success('Məhsul uğurla silindi');
-        fetchProducts(pagination.currentPage, searchTerm, filters);
-      } else {
-        toast.error(data.message || 'Məhsul silinərkən xəta baş verdi');
-      }
-    } catch (error) {
-      console.error('Error deleting product:', error);
-      toast.error('Məhsul silinərkən xəta baş verdi');
-    }
+  // Close product modal
+  const closeProductModal = () => {
+    setIsProductModalOpen(false);
+    setSelectedProduct(null);
   };
 
   // Format date
@@ -161,13 +148,35 @@ const ProductList = () => {
     const config = currencyMap[currency] || currencyMap['AZN'];
     
     try {
+      // Əgər fiyatın sonunda sıfır yoxdursa, .00 əlavə et
+      let formattedPrice = numericPrice.toString();
+      if (!formattedPrice.includes('.')) {
+        formattedPrice += '.00';
+      } else {
+        // Əgər ondalık hissə 1 rəqəmdirsə, sıfır əlavə et
+        const decimalPart = formattedPrice.split('.')[1];
+        if (decimalPart.length === 1) {
+          formattedPrice += '0';
+        }
+      }
+      
       return new Intl.NumberFormat(config.locale, {
         style: 'currency',
         currency: config.currency
-      }).format(numericPrice);
+      }).format(parseFloat(formattedPrice));
     } catch (error) {
       console.warn('Error formatting price:', error);
-      return `${numericPrice.toFixed(2)} ${currency}`;
+      // Əgər fiyatın sonunda sıfır yoxdursa, .00 əlavə et
+      let fallbackPrice = numericPrice.toString();
+      if (!fallbackPrice.includes('.')) {
+        fallbackPrice += '.00';
+      } else {
+        const decimalPart = fallbackPrice.split('.')[1];
+        if (decimalPart.length === 1) {
+          fallbackPrice += '0';
+        }
+      }
+      return `${fallbackPrice} ${currency}`;
     }
   };
 
@@ -425,23 +434,11 @@ const ProductList = () => {
                         <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                           <div className="flex items-center justify-end space-x-2">
                             <button
+                              onClick={() => handleViewProduct(product)}
                               className="inline-flex items-center p-2 border border-transparent rounded-full text-blue-600 bg-blue-100 hover:bg-blue-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors duration-150"
                               title="Bax"
                             >
                               <Eye className="h-4 w-4" />
-                            </button>
-                            <button
-                              className="inline-flex items-center p-2 border border-transparent rounded-full text-green-600 bg-green-100 hover:bg-green-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 transition-colors duration-150"
-                              title="Düzəliş et"
-                            >
-                              <Edit className="h-4 w-4" />
-                            </button>
-                            <button
-                              onClick={() => handleDeleteProduct(product._id)}
-                              className="inline-flex items-center p-2 border border-transparent rounded-full text-red-600 bg-red-100 hover:bg-red-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 transition-colors duration-150"
-                              title="Sil"
-                            >
-                              <Trash2 className="h-4 w-4" />
                             </button>
                           </div>
                         </td>
@@ -590,6 +587,15 @@ const ProductList = () => {
           </>
         )}
       </div>
+
+      {/* Product Detail Modal */}
+      {isProductModalOpen && selectedProduct && (
+        <ProductDetailModal
+          product={selectedProduct}
+          isOpen={isProductModalOpen}
+          onClose={closeProductModal}
+        />
+      )}
     </div>
   );
 };

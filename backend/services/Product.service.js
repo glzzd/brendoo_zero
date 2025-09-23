@@ -1,586 +1,835 @@
 const Product = require("../models/Product.model");
-const Store = require("../models/Store.model");
-const { cacheHelper, CACHE_KEYS } = require("../utils/cache");
-const { getStoreEndpointDataService } = require("./StoreEndpoint.service");
+const mongoose = require("mongoose");
 const { calculatePriceInRubles } = require("../utils/priceCalculator");
 
-const addProductsToStockService = async (products) => {
+// Helper function to normalize size data
+const normalizeSizes = (sizes) => {
+  if (!sizes || !Array.isArray(sizes)) return [];
+  
+  return sizes.map(size => {
+    if (typeof size === 'string') {
+      return { sizeName: size, onStock: true };
+    }
+    if (typeof size === 'object' && size !== null) {
+      return {
+        sizeName: size.sizeName || size.name || size,
+        onStock: size.onStock !== undefined ? size.onStock : true
+      };
+    }
+    return { sizeName: String(size), onStock: true };
+  });
+};
+
+// Helper function to normalize colors data
+const normalizeColors = (colors) => {
+  if (!colors || !Array.isArray(colors)) return [];
+  
+  return colors.map(color => {
+    if (typeof color === 'string') return color;
+    if (typeof color === 'object' && color !== null) {
+      return color.name || color.colorName || Object.values(color)[0] || String(color);
+    }
+    return String(color);
+  }).filter(Boolean);
+};
+
+// Helper function to normalize images data
+const normalizeImages = (images) => {
+  if (!images) return [];
+  if (typeof images === 'string') return [images];
+  if (Array.isArray(images)) return images.filter(Boolean);
+  return [];
+};
+
+// Helper function to build query filters
+const buildQueryFilters = (filters) => {
+  const query = { isActive: true };
+  
+  if (filters.store) {
+    query.store = filters.store.toLowerCase();
+  }
+  
+  if (filters.category) {
+    query.category = new RegExp(filters.category, 'i');
+  }
+  
+  if (filters.brand) {
+    query.brand = new RegExp(filters.brand, 'i');
+  }
+  
+  if (filters.search) {
+    query.$or = [
+      { name: new RegExp(filters.search, 'i') },
+      { brand: new RegExp(filters.search, 'i') },
+      { description: new RegExp(filters.search, 'i') },
+      { category: new RegExp(filters.search, 'i') }
+    ];
+  }
+  
+  if (filters.minPrice !== undefined || filters.maxPrice !== undefined) {
+    query.price = {};
+    if (filters.minPrice !== undefined) query.price.$gte = filters.minPrice;
+    if (filters.maxPrice !== undefined) query.price.$lte = filters.maxPrice;
+  }
+  
+  if (filters.hasDiscount) {
+    query.discountedPrice = { $ne: null };
+  }
+  
+  if (filters.inStock) {
+    query.stockStatus = 'in_stock';
+  }
+  
+  return query;
+};
+
+// Create single product or multiple products
+const createProductService = async (productsData) => {
   try {
-    if (!Array.isArray(products) || products.length === 0) {
-      throw new Error("Geçerli ürün listesi gönderilmedi");
-    }
-
-    const results = [];
-    const errors = [];
-
-    for (const item of products) {
-      try {
-        // Tüm string alanları lowercase'e çevir
-        const productData = {
-          name: item.name?.toLowerCase().trim(),
-          brand: item.brand?.toLowerCase().trim(),
-          price: item.price,
-          priceInRubles: calculatePriceInRubles(item.price),
-          description: item.description || "",
-          discountedPrice: item.discountedPrice || null,
-          imageUrl: item.imageUrl || [],
-          colors: item.colors?.map(color => color?.toLowerCase().trim()) || [],
-          sizes: item.sizes?.map(size => ({
-            sizeName: size.sizeName?.toLowerCase().trim(),
-            onStock: size.onStock
-          })) || [],
-          storeName: item.storeName?.toLowerCase().trim(),
-          categoryName: item.categoryName?.toLowerCase().trim()
-        };
-
-        // Var olan ürünü kontrol et (lowercase karşılaştırma)
-        const existingProduct = await Product.findOne({
-          name: { $regex: new RegExp(`^${productData.name}$`, 'i') },
-          brand: { $regex: new RegExp(`^${productData.brand}$`, 'i') },
-          storeName: { $regex: new RegExp(`^${productData.storeName}$`, 'i') }
-        });
-
-        if (existingProduct) {
-          // Var olan ürünü güncelle (stok durumu değişmiş olabilir)
-          const updatedProduct = await Product.findByIdAndUpdate(
-            existingProduct._id,
-            {
-              price: productData.price,
-              priceInRubles: productData.priceInRubles,
-              description: productData.description,
-              discountedPrice: productData.discountedPrice,
-              imageUrl: productData.imageUrl,
-              colors: productData.colors,
-              sizes: productData.sizes,
-              categoryName: productData.categoryName,
-              updatedAt: new Date()
-            },
-            { new: true }
-          );
-          results.push(updatedProduct);
-        } else {
-          // Yeni ürün ekle
-          const newProduct = new Product(productData);
-          const savedProduct = await newProduct.save();
-          results.push(savedProduct);
+    // Check if productsData is an array
+    if (Array.isArray(productsData)) {
+      console.log(`🔧 Processing ${productsData.length} products as array`);
+      
+      const results = {
+        success: true,
+        added: 0,
+        skipped: 0,
+        errors: 0,
+        details: []
+      };
+      
+      // Map through each product and process
+      for (const productData of productsData) {
+        try {
+          const singleResult = await processSingleProduct(productData);
+          
+          if (singleResult.success) {
+            results.added++;
+            results.details.push({
+              name: singleResult.data.name,
+              status: 'added',
+              id: singleResult.data._id
+            });
+          } else {
+            if (singleResult.error === "DUPLICATE_PRODUCT") {
+              results.skipped++;
+              results.details.push({
+                name: productData.name || 'Unknown',
+                status: 'skipped',
+                reason: singleResult.message
+              });
+            } else {
+              results.errors++;
+              results.details.push({
+                name: productData.name || 'Unknown',
+                status: 'error',
+                reason: singleResult.message
+              });
+            }
+          }
+        } catch (error) {
+          results.errors++;
+          results.details.push({
+            name: productData.name || 'Unknown',
+            status: 'error',
+            reason: error.message
+          });
         }
-      } catch (itemError) {
-        errors.push({
-          item: item.name,
-          error: itemError.message
-        });
       }
+      
+      console.log(`✅ Array processing completed: ${results.added} added, ${results.skipped} skipped, ${results.errors} errors`);
+      
+      return {
+        success: true,
+        message: `Processed ${productsData.length} products: ${results.added} added, ${results.skipped} skipped, ${results.errors} errors`,
+        data: results
+      };
+    } else {
+      // Single product processing
+      console.log("🔧 Processing single product data:", productsData);
+      return await processSingleProduct(productsData);
     }
-
-    return {
-      success: true,
-      message: `${results.length} ürün işlendi (eklendi/güncellendi)`,
-      data: results,
-      errors: errors.length > 0 ? errors : undefined
-    };
   } catch (error) {
-    console.error("Ürün ekleme hatası:", error.message);
-
+    console.error("❌ Error in createProductService:", error);
     return {
       success: false,
-      message: "Ürün işlenirken hata oluştu",
+      message: "Failed to create product(s)",
       error: error.message
     };
   }
 };
-const compareProductFields = (existingProduct, newProductData) => {
-    const changes = {};
-    const fieldsToCompare = ['name', 'brand', 'price', 'discountedPrice', 'description', 'colors', 'sizes', 'categoryName', 'imageUrl'];
-    
-    fieldsToCompare.forEach(field => {
-        if (newProductData[field] !== undefined) {
-            // Handle arrays (colors, sizes, imageUrl)
-            if (Array.isArray(existingProduct[field]) && Array.isArray(newProductData[field])) {
-                const existingSet = new Set(existingProduct[field]);
-                const newSet = new Set(newProductData[field]);
-                
-                // Check if arrays are different
-                if (existingSet.size !== newSet.size || 
-                    ![...existingSet].every(item => newSet.has(item))) {
-                    changes[field] = {
-                        old: existingProduct[field],
-                        new: newProductData[field]
-                    };
-                }
-            } 
-            // Handle regular fields
-            else if (existingProduct[field] !== newProductData[field]) {
-                changes[field] = {
-                    old: existingProduct[field],
-                    new: newProductData[field]
-                };
-            }
-        }
-    });
-    
-    return changes;
-};
 
-// Add product to stock with cache integration and smart updates
-const addProductToStockService = async (productData, userId, useCache = false, storeId = null, endpointIndex = 1) => {
+// Helper function to process a single product
+const processSingleProduct = async (productData) => {
   try {
-    let productsFromEndpoint = [];
-    
-    // If useCache is true, try to get products from cache first
-    if (useCache && storeId) {
-        try {
-            const endpointData = await getStoreEndpointDataService(storeId, endpointIndex);
-            productsFromEndpoint = Array.isArray(endpointData) ? endpointData : 
-                                 (endpointData.products || endpointData.data || []);
-            console.log(`Found ${productsFromEndpoint.length} products from cached endpoint data`);
-        } catch (error) {
-            console.warn(`Could not fetch endpoint data: ${error.message}`);
-        }
+    // Validate required fields
+    if (!productData.name || !productData.brand || !productData.price) {
+      return {
+        success: false,
+        message: "Name, brand, and price are required fields",
+        error: "MISSING_REQUIRED_FIELDS"
+      };
     }
     
-    // If we have products from endpoint, process them
-    if (productsFromEndpoint.length > 0) {
-        const results = [];
-        
-        for (const endpointProduct of productsFromEndpoint) {
-            try {
-                // Check if product already exists (same name, brand, and store)
-                const existingProduct = await Product.findOne({
-                    name: endpointProduct.name,
-                    brand: endpointProduct.brand,
-                    storeName: endpointProduct.storeName
-                });
-
-                if (existingProduct) {
-                    // Compare fields and update if necessary
-                    const changes = compareProductFields(existingProduct, endpointProduct);
-                    
-                    if (Object.keys(changes).length > 0) {
-                        // Update existing product with changes
-                        Object.keys(changes).forEach(field => {
-                            existingProduct[field] = changes[field].new;
-                        });
-                        
-                        existingProduct.updatedAt = new Date();
-                        const updatedProduct = await existingProduct.save();
-                        
-                        results.push({
-                            success: true,
-                            action: 'updated',
-                            message: `Məhsul yeniləndi: ${Object.keys(changes).join(', ')} dəyişdi`,
-                            product: updatedProduct,
-                            changes: changes
-                        });
-                    } else {
-                        results.push({
-                            success: true,
-                            action: 'no_change',
-                            message: "Məhsul artıq mövcuddur və dəyişiklik yoxdur",
-                            product: existingProduct
-                        });
-                    }
-                } else {
-                    // Create new product
-                    const newProduct = new Product({
-                        ...endpointProduct
-                    });
-
-                    const savedProduct = await newProduct.save();
-
-                    results.push({
-                        success: true,
-                        action: 'created',
-                        message: "Məhsul uğurla stok-a əlavə edildi",
-                        product: savedProduct
-                    });
-                }
-            } catch (error) {
-                results.push({
-                    success: false,
-                    action: 'error',
-                    message: `Məhsul emal edilərkən xəta: ${error.message}`,
-                    product: endpointProduct
-                });
-            }
-        }
-        
-        return {
-            success: true,
-            bulk: true,
-            message: `${results.length} məhsul emal edildi`,
-            results: results,
-            summary: {
-                total: results.length,
-                created: results.filter(r => r.action === 'created').length,
-                updated: results.filter(r => r.action === 'updated').length,
-                noChange: results.filter(r => r.action === 'no_change').length,
-                errors: results.filter(r => r.action === 'error').length
-            }
-        };
-    }
-    
-    // Original single product logic
-    // Tüm string alanları lowercase'e çevir
-    const formattedProductData = {
-      ...productData,
-      name: productData.name?.toLowerCase().trim(),
-      brand: productData.brand?.toLowerCase().trim(),
-      storeName: productData.storeName?.toLowerCase().trim(),
-      categoryName: productData.categoryName?.toLowerCase().trim(),
-      colors: productData.colors?.map(color => color?.toLowerCase().trim()) || [],
-      sizes: productData.sizes?.map(size => ({
-        sizeName: size.sizeName?.toLowerCase().trim(),
-        onStock: size.onStock
-      })) || []
+    // Normalize data with proper lowercase handling
+    const normalizedData = {
+      name: productData.name.trim().toLowerCase(),
+      brand: productData.brand.trim().toLowerCase(),
+      price: parseFloat(productData.price),
+      currency: productData.currency ? productData.currency.toUpperCase() : 'AZN',
+      priceInRubles: calculatePriceInRubles(parseFloat(productData.price)),
+      discountedPrice: productData.discountedPrice ? parseFloat(productData.discountedPrice) : null,
+      description: productData.description || "",
+      images: normalizeImages(productData.images || productData.imageUrl),
+      sizes: normalizeSizes(productData.sizes),
+      colors: normalizeColors(productData.colors),
+      store: (productData.store || productData.storeName || "").toLowerCase(),
+      category: (productData.category || productData.categoryName || "").toLowerCase(),
+      processedAt: productData.processedAt || new Date().toLocaleTimeString()
     };
-
-    // Store kontrolünü kaldırıyoruz çünkü artık storeId field'ı yok
-
-    // Check if product already exists (lowercase karşılaştırma)
+    
+    // Check for existing product by name, store, category, and brand
     const existingProduct = await Product.findOne({
-      name: { $regex: new RegExp(`^${formattedProductData.name}$`, 'i') },
-      brand: { $regex: new RegExp(`^${formattedProductData.brand}$`, 'i') },
-      storeName: { $regex: new RegExp(`^${formattedProductData.storeName}$`, 'i') }
+      name: normalizedData.name,
+      brand: normalizedData.brand,
+      store: normalizedData.store,
+      category: normalizedData.category,
+      isActive: true
     });
-
+    
     if (existingProduct) {
-      // Compare fields and update if necessary
-      const changes = compareProductFields(existingProduct, formattedProductData);
+      // Update existing product instead of creating duplicate
+      const updateFields = {};
+      let hasChanges = false;
       
-      if (Object.keys(changes).length > 0) {
-        // Update existing product with changes
-        Object.keys(changes).forEach(field => {
-          existingProduct[field] = changes[field].new;
+      // Check and update price if different
+      if (existingProduct.price !== normalizedData.price) {
+        updateFields.price = normalizedData.price;
+        updateFields.priceInRubles = normalizedData.priceInRubles;
+        hasChanges = true;
+      }
+      
+      // Check and update discounted price if different
+      if (existingProduct.discountedPrice !== normalizedData.discountedPrice) {
+        updateFields.discountedPrice = normalizedData.discountedPrice;
+        hasChanges = true;
+      }
+      
+      // Check and update currency if different
+      if (existingProduct.currency !== normalizedData.currency) {
+        updateFields.currency = normalizedData.currency;
+        hasChanges = true;
+      }
+      
+      // Check and update description if different
+      if (existingProduct.description !== normalizedData.description && normalizedData.description) {
+        updateFields.description = normalizedData.description;
+        hasChanges = true;
+      }
+      
+      // Check and update images if different
+      if (JSON.stringify(existingProduct.images) !== JSON.stringify(normalizedData.images) && normalizedData.images.length > 0) {
+        updateFields.images = normalizedData.images;
+        hasChanges = true;
+      }
+      
+      // Check and update sizes if different
+      if (JSON.stringify(existingProduct.sizes) !== JSON.stringify(normalizedData.sizes)) {
+        updateFields.sizes = normalizedData.sizes;
+        hasChanges = true;
+      }
+      
+      // Check and update colors if different
+      if (JSON.stringify(existingProduct.colors) !== JSON.stringify(normalizedData.colors)) {
+        updateFields.colors = normalizedData.colors;
+        hasChanges = true;
+      }
+      
+      if (hasChanges) {
+        updateFields.processedAt = new Date().toLocaleTimeString('tr-TR', { 
+          hour12: false,
+          hour: '2-digit',
+          minute: '2-digit',
+          second: '2-digit'
         });
         
-        existingProduct.updatedAt = new Date();
-        const updatedProduct = await existingProduct.save();
+        const updatedProduct = await Product.findByIdAndUpdate(
+          existingProduct._id,
+          updateFields,
+          { new: true, runValidators: true }
+        );
+        
+        console.log("✅ Product updated successfully:", updatedProduct._id);
         
         return {
           success: true,
-          action: 'updated',
-          message: `Məhsul yeniləndi: ${Object.keys(changes).join(', ')} dəyişdi`,
-          product: updatedProduct,
-          changes: changes
+          message: "Product updated successfully",
+          data: updatedProduct,
+          action: "updated"
         };
       } else {
+        console.log("ℹ️ Product already exists with same data:", existingProduct._id);
+        
         return {
-          success: false,
-          isDuplicate: true,
-          message: "Bu məhsul artıq stokda mövcuddur və dəyişiklik yoxdur",
-          product: existingProduct
+          success: true,
+          message: "Product already exists with same data",
+          data: existingProduct,
+          action: "skipped"
         };
       }
     }
-
+    
     // Create new product
-    const newProduct = new Product({
-      ...formattedProductData
-    });
-
+    const newProduct = new Product(normalizedData);
     const savedProduct = await newProduct.save();
-
+    
+    console.log("✅ Product created successfully:", savedProduct._id);
+    
     return {
       success: true,
-      isDuplicate: false,
-      message: "Məhsul uğurla stok-a əlavə edildi",
-      product: savedProduct
+      message: "Product created successfully",
+      data: savedProduct,
+      action: "created"
     };
   } catch (error) {
-    throw error;
+    console.error("❌ Error in processSingleProduct:", error);
+    return {
+      success: false,
+      message: "Failed to create product",
+      error: error.message
+    };
   }
 };
 
-// Get products with pagination and filtering
-const getProductsService = async (page = 1, limit = 10, filters = {}) => {
+// Bulk create products
+const bulkCreateProductsService = async (products) => {
   try {
-    const skip = (page - 1) * limit;
+    console.log(`🔧 Processing ${products.length} products for bulk creation`);
     
-    // Build query
-    let query = {};
+    const results = {
+      added: 0,
+      updated: 0,
+      skipped: 0,
+      errors: 0,
+      details: []
+    };
     
-    if (filters.storeName) {
-      query.storeName = { $regex: filters.storeName, $options: "i" };
+    for (const productData of products) {
+      try {
+        // Validate required fields
+        if (!productData.name || !productData.brand || !productData.price) {
+          results.skipped++;
+          results.details.push({
+            name: productData.name || 'Unknown',
+            status: 'skipped',
+            reason: 'Missing required fields (name, brand, price)'
+          });
+          continue;
+        }
+        
+        // Normalize data
+        const normalizedData = {
+          name: productData.name.trim(),
+          brand: productData.brand.trim().toUpperCase(),
+          price: parseFloat(productData.price),
+          discountedPrice: productData.discountedPrice ? parseFloat(productData.discountedPrice) : null,
+          description: productData.description || "",
+          images: normalizeImages(productData.images || productData.imageUrl),
+          sizes: normalizeSizes(productData.sizes),
+          colors: normalizeColors(productData.colors),
+          store: (productData.store || productData.storeName || "").toLowerCase(),
+          category: productData.category || productData.categoryName || "",
+          processedAt: productData.processedAt || new Date().toLocaleTimeString()
+        };
+        
+        // Check for existing product
+        const existingProduct = await Product.findOne({
+          name: normalizedData.name,
+          brand: normalizedData.brand,
+          store: normalizedData.store,
+          isActive: true
+        });
+        
+        if (existingProduct) {
+          // Update existing product
+          Object.assign(existingProduct, normalizedData);
+          existingProduct.updatedAt = new Date();
+          await existingProduct.save();
+          
+          results.updated++;
+          results.details.push({
+            name: normalizedData.name,
+            status: 'updated',
+            id: existingProduct._id
+          });
+        } else {
+          // Create new product
+          const newProduct = new Product(normalizedData);
+          const savedProduct = await newProduct.save();
+          
+          results.added++;
+          results.details.push({
+            name: normalizedData.name,
+            status: 'added',
+            id: savedProduct._id
+          });
+        }
+      } catch (error) {
+        console.error(`❌ Error processing product ${productData.name}:`, error);
+        results.errors++;
+        results.details.push({
+          name: productData.name || 'Unknown',
+          status: 'error',
+          reason: error.message
+        });
+      }
     }
     
-    if (filters.categoryName) {
-      query.categoryName = { $regex: filters.categoryName, $options: "i" };
-    }
+    console.log(`✅ Bulk operation completed: ${results.added} added, ${results.updated} updated, ${results.skipped} skipped, ${results.errors} errors`);
     
-    if (filters.brand) {
-      query.brand = { $regex: filters.brand, $options: "i" };
-    }
-    
-    if (filters.name) {
-      query.name = { $regex: filters.name, $options: "i" };
-    }
+    return results;
+  } catch (error) {
+    console.error("❌ Error in bulkCreateProductsService:", error);
+    throw new Error(`Bulk creation failed: ${error.message}`);
+  }
+};
 
-    // Get products with pagination
-    const products = await Product.find(query)
-      .sort({ createdAt: -1 })
-      .skip(skip)
-      .limit(limit);
-
-    // Get total count
-    const totalDocs = await Product.countDocuments(query);
-    const totalPages = Math.ceil(totalDocs / limit);
-
+// Get products with filtering and pagination
+const getProductsService = async (filters) => {
+  try {
+    const query = buildQueryFilters(filters);
+    
+    // Build sort object
+    const sortObj = {};
+    sortObj[filters.sortBy] = filters.sortOrder === 'asc' ? 1 : -1;
+    
+    // Calculate pagination
+    const skip = (filters.page - 1) * filters.limit;
+    
+    // Execute query
+    const [products, totalCount] = await Promise.all([
+      Product.find(query)
+        .sort(sortObj)
+        .skip(skip)
+        .limit(filters.limit)
+        .lean(),
+      Product.countDocuments(query)
+    ]);
+    
+    // Calculate pagination info
+    const totalPages = Math.ceil(totalCount / filters.limit);
+    
     return {
-      products,
+      data: products,
       pagination: {
-        currentPage: page,
+        currentPage: filters.page,
         totalPages,
-        totalDocs,
-        limit,
-        hasNextPage: page < totalPages,
-        hasPrevPage: page > 1
+        totalItems: totalCount,
+        itemsPerPage: filters.limit,
+        hasNextPage: filters.page < totalPages,
+        hasPrevPage: filters.page > 1
+      },
+      appliedFilters: {
+        store: filters.store,
+        category: filters.category,
+        brand: filters.brand,
+        search: filters.search,
+        priceRange: filters.minPrice || filters.maxPrice ? {
+          min: filters.minPrice,
+          max: filters.maxPrice
+        } : null,
+        hasDiscount: filters.hasDiscount,
+        inStock: filters.inStock
       }
     };
   } catch (error) {
-    throw error;
+    console.error("❌ Error in getProductsService:", error);
+    throw new Error(`Failed to retrieve products: ${error.message}`);
   }
 };
 
 // Get product by ID
 const getProductByIdService = async (productId) => {
   try {
-    const product = await Product.findById(productId);
+    if (!mongoose.Types.ObjectId.isValid(productId)) {
+      return {
+        success: false,
+        message: "Invalid product ID format"
+      };
+    }
+    
+    const product = await Product.findOne({
+      _id: productId,
+      isActive: true
+    }).lean();
     
     if (!product) {
-      throw new Error("Məhsul tapılmadı");
+      return {
+        success: false,
+        message: "Product not found"
+      };
     }
-
-    return product;
+    
+    return {
+      success: true,
+      data: product
+    };
   } catch (error) {
-    throw error;
+    console.error("❌ Error in getProductByIdService:", error);
+    throw new Error(`Failed to retrieve product: ${error.message}`);
   }
 };
 
 // Update product
-const updateProductService = async (productId, updateData, userId) => {
+const updateProductService = async (productId, updateData) => {
   try {
-    const product = await Product.findById(productId);
-    
-    if (!product) {
-      throw new Error("Məhsul tapılmadı");
-    }
-
-    // Check if updating name/brand would create duplicate
-    if (updateData.name || updateData.brand) {
-      const duplicateQuery = {
-        name: updateData.name || product.name,
-        brand: updateData.brand || product.brand,
-        storeName: product.storeName,
-        _id: { $ne: productId }
+    if (!mongoose.Types.ObjectId.isValid(productId)) {
+      return {
+        success: false,
+        message: "Invalid product ID format"
       };
-
-      const existingProduct = await Product.findOne(duplicateQuery);
-      if (existingProduct) {
-        throw new Error("Bu ad və marka ilə məhsul artıq mövcuddur");
+    }
+    
+    const existingProduct = await Product.findOne({
+      _id: productId,
+      isActive: true
+    });
+    
+    if (!existingProduct) {
+      return {
+        success: false,
+        message: "Product not found"
+      };
+    }
+    
+    // Normalize update data
+    const normalizedData = {};
+    
+    if (updateData.name) normalizedData.name = updateData.name.trim();
+    if (updateData.brand) normalizedData.brand = updateData.brand.trim().toUpperCase();
+    if (updateData.price !== undefined) normalizedData.price = parseFloat(updateData.price);
+    if (updateData.discountedPrice !== undefined) {
+      normalizedData.discountedPrice = updateData.discountedPrice ? parseFloat(updateData.discountedPrice) : null;
+    }
+    if (updateData.description !== undefined) normalizedData.description = updateData.description;
+    if (updateData.images || updateData.imageUrl) {
+      normalizedData.images = normalizeImages(updateData.images || updateData.imageUrl);
+    }
+    if (updateData.sizes) normalizedData.sizes = normalizeSizes(updateData.sizes);
+    if (updateData.colors) normalizedData.colors = normalizeColors(updateData.colors);
+    if (updateData.store || updateData.storeName) {
+      normalizedData.store = (updateData.store || updateData.storeName).toLowerCase();
+    }
+    if (updateData.category || updateData.categoryName) {
+      normalizedData.category = updateData.category || updateData.categoryName;
+    }
+    if (updateData.processedAt) normalizedData.processedAt = updateData.processedAt;
+    
+    // Check for duplicate if name, brand, or store is being updated
+    if (normalizedData.name || normalizedData.brand || normalizedData.store) {
+      const checkData = {
+        name: normalizedData.name || existingProduct.name,
+        brand: normalizedData.brand || existingProduct.brand,
+        store: normalizedData.store || existingProduct.store
+      };
+      
+      const duplicate = await Product.findOne({
+        ...checkData,
+        _id: { $ne: productId },
+        isActive: true
+      });
+      
+      if (duplicate) {
+        return {
+          success: false,
+          message: "Another product already exists with the same name, brand, and store",
+          error: "DUPLICATE_PRODUCT"
+        };
       }
     }
-
-    // Eğer price güncelleniyor ise priceInRubles'ı da hesapla
-    if (updateData.price) {
-      updateData.priceInRubles = calculatePriceInRubles(updateData.price);
-    }
-
-    const updatedProduct = await Product.findByIdAndUpdate(
-      productId,
-      { ...updateData, updatedAt: new Date() },
-      { new: true, runValidators: true }
-    );
-
-    return updatedProduct;
-  } catch (error) {
-    throw error;
-  }
-};
-
-// Delete product
-const deleteProductService = async (productId) => {
-  try {
-    const product = await Product.findById(productId);
     
-    if (!product) {
-      throw new Error("Məhsul tapılmadı");
-    }
-
-    await Product.findByIdAndDelete(productId);
+    // Update product
+    Object.assign(existingProduct, normalizedData);
+    existingProduct.updatedAt = new Date();
+    
+    const updatedProduct = await existingProduct.save();
     
     return {
       success: true,
-      message: "Məhsul uğurla silindi"
+      data: updatedProduct
     };
   } catch (error) {
-    throw error;
+    console.error("❌ Error in updateProductService:", error);
+    return {
+      success: false,
+      message: "Failed to update product",
+      error: error.message
+    };
   }
 };
 
-// Bulk add products (for synchronization)
-const bulkAddProductsService = async (productsData, storeId, categoryName, userId) => {
+// Delete product (soft delete)
+const deleteProductService = async (productId) => {
   try {
-    const results = {
-      success: 0,
-      duplicates: 0,
-      errors: 0,
-      details: []
-    };
-
-    for (const productData of productsData) {
-      try {
-        // String alanları lowercase'e çevir
-        const formattedProductData = {
-          ...productData,
-          name: productData.name?.toLowerCase().trim(),
-          brand: productData.brand?.toLowerCase().trim(),
-          categoryName: categoryName?.toLowerCase().trim(),
-          colors: productData.colors?.map(color => color?.toLowerCase().trim()) || [],
-          sizes: productData.sizes?.map(size => ({
-            sizeName: size.sizeName?.toLowerCase().trim(),
-            onStock: size.onStock
-          })) || []
-        };
-
-        const result = await addProductToStockService({
-          ...formattedProductData,
-          storeId,
-          categoryName: categoryName?.toLowerCase().trim()
-        }, userId);
-
-        if (result.success) {
-          results.success++;
-        } else if (result.isDuplicate) {
-          results.duplicates++;
-        }
-
-        results.details.push({
-          name: formattedProductData.name,
-          brand: formattedProductData.brand,
-          status: result.success ? 'success' : (result.isDuplicate ? 'duplicate' : 'error'),
-          message: result.message
-        });
-      } catch (error) {
-        results.errors++;
-        results.details.push({
-          name: productData.name || 'Unknown',
-          brand: productData.brand || 'Unknown',
-          status: 'error',
-          message: error.message
-        });
-      }
+    if (!mongoose.Types.ObjectId.isValid(productId)) {
+      return {
+        success: false,
+        message: "Invalid product ID format"
+      };
     }
-
-    return results;
+    
+    const product = await Product.findOne({
+      _id: productId,
+      isActive: true
+    });
+    
+    if (!product) {
+      return {
+        success: false,
+        message: "Product not found"
+      };
+    }
+    
+    // Soft delete
+    product.isActive = false;
+    product.updatedAt = new Date();
+    await product.save();
+    
+    return {
+      success: true,
+      data: product
+    };
   } catch (error) {
-    throw error;
+    console.error("❌ Error in deleteProductService:", error);
+    throw new Error(`Failed to delete product: ${error.message}`);
   }
 };
 
-const getProductsByStoreNameService = async (storeName, page = 1, limit = 10, filters = {}) => {
-    try {
-        // Check cache first
-        const cacheKey = CACHE_KEYS.PRODUCTS_BY_STORE(storeName, 'all', 'all', filters);
-        const cachedResult = cacheHelper.get(cacheKey);
-        if (cachedResult) {
-            return cachedResult;
-        }
+// Get products by store
+const getProductsByStoreService = async (storeName, options = {}) => {
+  try {
+    const {
+      page = 1,
+      limit = 20,
+      sortBy = 'createdAt',
+      sortOrder = 'desc'
+    } = options;
+    
+    const query = {
+      store: storeName.toLowerCase(),
+      isActive: true
+    };
+    
+    const sortObj = {};
+    sortObj[sortBy] = sortOrder === 'asc' ? 1 : -1;
+    
+    const skip = (page - 1) * limit;
+    
+    const [products, totalCount] = await Promise.all([
+      Product.find(query)
+        .sort(sortObj)
+        .skip(skip)
+        .limit(limit)
+        .lean(),
+      Product.countDocuments(query)
+    ]);
+    
+    const totalPages = Math.ceil(totalCount / limit);
+    
+    return {
+      data: products,
+      pagination: {
+        currentPage: page,
+        totalPages,
+        totalItems: totalCount,
+        itemsPerPage: limit,
+        hasNextPage: page < totalPages,
+        hasPrevPage: page > 1
+      },
+      store: storeName
+    };
+  } catch (error) {
+    console.error("❌ Error in getProductsByStoreService:", error);
+    throw new Error(`Failed to retrieve store products: ${error.message}`);
+  }
+};
 
-        // Get store with cache
-        const storeCacheKey = CACHE_KEYS.STORE_BY_NAME(storeName);
-        let store = cacheHelper.get(storeCacheKey);
-        
-        if (!store) {
-            store = await Store.findOne({ 
-                name: { $regex: new RegExp(`^${storeName}$`, 'i') }
-            }).select('_id name').lean();
-            
-            if (!store) {
-                throw new Error("Mağaza tapılmadı");
-            }
-            
-            // Cache store for 30 minutes
-            cacheHelper.set(storeCacheKey, store, 1800);
-        }
-        
-        // Build query filters
-        const query = { storeName: { $regex: new RegExp(`^${store.name}$`, 'i') } };
-        
-        if (filters.categoryName) {
-            query.categoryName = { $regex: new RegExp(filters.categoryName, 'i') };
-        }
-        if (filters.brand) {
-            query.brand = { $regex: new RegExp(filters.brand, 'i') };
-        }
-        if (filters.minPrice || filters.maxPrice) {
-            query.price = {};
-            if (filters.minPrice) query.price.$gte = parseFloat(filters.minPrice);
-            if (filters.maxPrice) query.price.$lte = parseFloat(filters.maxPrice);
-        }
-
-        // Get all products without pagination
-        const pipeline = [
-            { $match: query },
-            { $sort: { createdAt: -1 } },
-            {
-                $project: {
-                    name: 1,
-                    brand: 1,
-                    price: 1,
-                    description: 1,
-                    discountedPrice: 1,
-                    // Limit imageUrl to first 2 images and truncate base64 data
-                    imageUrl: {
-                        $map: {
-                            input: { $slice: ["$imageUrl", 2] },
-                            as: "img",
-                            in: {
-                                $cond: {
-                                    if: { $gt: [{ $strLenCP: "$$img" }, 1000] },
-                                    then: { $concat: [{ $substr: ["$$img", 0, 1000] }, "..."] },
-                                    else: "$$img"
-                                }
-                            }
-                        }
-                    },
-                    colors: 1,
-                    sizes: 1,
-                    storeId: 1,
-                    categoryName: 1,
-                    createdAt: 1,
-                    updatedAt: 1
-                }
-            }
-        ];
-
-        const products = await Product.aggregate(pipeline);
-        const totalProducts = products.length;
-
-        const response = {
-            products,
-            store: {
-                _id: store._id,
-                name: store.name
-            },
-            totalProducts,
-            message: `${totalProducts} ürün bulundu`
-        };
-
-        // Cache result for 5 minutes
-        cacheHelper.set(cacheKey, response, 300);
-
-        return response;
-    } catch (error) {
-        throw new Error(`Məhsullar alınarkən xəta: ${error.message}`);
+// Get products by category
+const getProductsByCategoryService = async (categoryName, storeName = null, options = {}) => {
+  try {
+    const {
+      page = 1,
+      limit = 20,
+      sortBy = 'createdAt',
+      sortOrder = 'desc'
+    } = options;
+    
+    const query = {
+      category: new RegExp(categoryName, 'i'),
+      isActive: true
+    };
+    
+    if (storeName) {
+      query.store = storeName.toLowerCase();
     }
+    
+    const sortObj = {};
+    sortObj[sortBy] = sortOrder === 'asc' ? 1 : -1;
+    
+    const skip = (page - 1) * limit;
+    
+    const [products, totalCount] = await Promise.all([
+      Product.find(query)
+        .sort(sortObj)
+        .skip(skip)
+        .limit(limit)
+        .lean(),
+      Product.countDocuments(query)
+    ]);
+    
+    const totalPages = Math.ceil(totalCount / limit);
+    
+    return {
+      data: products,
+      pagination: {
+        currentPage: page,
+        totalPages,
+        totalItems: totalCount,
+        itemsPerPage: limit,
+        hasNextPage: page < totalPages,
+        hasPrevPage: page > 1
+      },
+      category: categoryName
+    };
+  } catch (error) {
+    console.error("❌ Error in getProductsByCategoryService:", error);
+    throw new Error(`Failed to retrieve category products: ${error.message}`);
+  }
+};
+
+// Get products by brand
+const getProductsByBrandService = async (brandName, storeName = null, options = {}) => {
+  try {
+    const {
+      page = 1,
+      limit = 20,
+      sortBy = 'createdAt',
+      sortOrder = 'desc'
+    } = options;
+    
+    const query = {
+      brand: new RegExp(brandName, 'i'),
+      isActive: true
+    };
+    
+    if (storeName) {
+      query.store = storeName.toLowerCase();
+    }
+    
+    const sortObj = {};
+    sortObj[sortBy] = sortOrder === 'asc' ? 1 : -1;
+    
+    const skip = (page - 1) * limit;
+    
+    const [products, totalCount] = await Promise.all([
+      Product.find(query)
+        .sort(sortObj)
+        .skip(skip)
+        .limit(limit)
+        .lean(),
+      Product.countDocuments(query)
+    ]);
+    
+    const totalPages = Math.ceil(totalCount / limit);
+    
+    return {
+      data: products,
+      pagination: {
+        currentPage: page,
+        totalPages,
+        totalItems: totalCount,
+        itemsPerPage: limit,
+        hasNextPage: page < totalPages,
+        hasPrevPage: page > 1
+      },
+      brand: brandName
+    };
+  } catch (error) {
+    console.error("❌ Error in getProductsByBrandService:", error);
+    throw new Error(`Failed to retrieve brand products: ${error.message}`);
+  }
+};
+
+// Search products
+const searchProductsService = async (searchQuery, options = {}) => {
+  try {
+    const {
+      store,
+      category,
+      brand,
+      page = 1,
+      limit = 20,
+      sortBy = 'createdAt',
+      sortOrder = 'desc'
+    } = options;
+    
+    const query = {
+      $or: [
+        { name: new RegExp(searchQuery, 'i') },
+        { brand: new RegExp(searchQuery, 'i') },
+        { description: new RegExp(searchQuery, 'i') },
+        { category: new RegExp(searchQuery, 'i') }
+      ],
+      isActive: true
+    };
+    
+    if (store) query.store = store.toLowerCase();
+    if (category) query.category = new RegExp(category, 'i');
+    if (brand) query.brand = new RegExp(brand, 'i');
+    
+    const sortObj = {};
+    sortObj[sortBy] = sortOrder === 'asc' ? 1 : -1;
+    
+    const skip = (page - 1) * limit;
+    
+    const [products, totalCount] = await Promise.all([
+      Product.find(query)
+        .sort(sortObj)
+        .skip(skip)
+        .limit(limit)
+        .lean(),
+      Product.countDocuments(query)
+    ]);
+    
+    const totalPages = Math.ceil(totalCount / limit);
+    
+    return {
+      data: products,
+      pagination: {
+        currentPage: page,
+        totalPages,
+        totalItems: totalCount,
+        itemsPerPage: limit,
+        hasNextPage: page < totalPages,
+        hasPrevPage: page > 1
+      },
+      totalResults: totalCount
+    };
+  } catch (error) {
+    console.error("❌ Error in searchProductsService:", error);
+    throw new Error(`Failed to search products: ${error.message}`);
+  }
 };
 
 module.exports = {
-  addProductsToStockService,
+  createProductService,
+  bulkCreateProductsService,
   getProductsService,
   getProductByIdService,
   updateProductService,
   deleteProductService,
-  bulkAddProductsService,
-  getProductsByStoreNameService
+  getProductsByStoreService,
+  getProductsByCategoryService,
+  getProductsByBrandService,
+  searchProductsService
 };

@@ -1,5 +1,21 @@
 const CategoryStock = require("../models/CategoryStock.model");
 
+// Kategori alanlarını karşılaştır ve değişiklikleri tespit et
+const compareCategoryFields = (existingCategory, newCategoryData) => {
+  const changes = {};
+  const fieldsToCompare = ['categoryType', 'img', 'status'];
+  
+  fieldsToCompare.forEach(field => {
+    if (newCategoryData[field] !== undefined && existingCategory[field] !== newCategoryData[field]) {
+      changes[field] = {
+        old: existingCategory[field],
+        new: newCategoryData[field]
+      };
+    }
+  });
+  
+  return changes;
+};
 
 const addCategoryApiService = async (addedCategories) => {
   try {
@@ -9,6 +25,9 @@ const addCategoryApiService = async (addedCategories) => {
 
     const results = [];
     const errors = [];
+    let addedCount = 0;
+    let updatedCount = 0;
+    let skippedCount = 0;
 
     for (const item of addedCategories) {
       try {
@@ -28,23 +47,58 @@ const addCategoryApiService = async (addedCategories) => {
         });
 
         if (existingCategory) {
-          // Var olan kategoriyi güncelle (stok durumu değişmiş olabilir)
-          const updatedCategory = await CategoryStock.findByIdAndUpdate(
-            existingCategory._id,
-            {
-              categoryType: categoryData.categoryType,
-              img: categoryData.img,
-              status: "active", // Tekrar geliyorsa aktif yap
-              updatedAt: new Date()
-            },
-            { new: true }
-          );
-          results.push(updatedCategory);
+          // Değişiklikleri kontrol et
+          const changes = compareCategoryFields(existingCategory, categoryData);
+          
+          if (Object.keys(changes).length > 0) {
+            // Değişiklik varsa güncelle
+            const updatedCategory = await CategoryStock.findByIdAndUpdate(
+              existingCategory._id,
+              {
+                categoryType: categoryData.categoryType,
+                img: categoryData.img,
+                status: "active", // Tekrar geliyorsa aktif yap
+                updatedAt: new Date()
+              },
+              { new: true }
+            );
+            results.push({
+              category: updatedCategory,
+              action: 'updated',
+              changes: changes
+            });
+            updatedCount++;
+          } else {
+            // Değişiklik yoksa sadece status'u aktif yap (eğer değilse)
+            if (existingCategory.status !== 'active') {
+              const updatedCategory = await CategoryStock.findByIdAndUpdate(
+                existingCategory._id,
+                { status: 'active', updatedAt: new Date() },
+                { new: true }
+              );
+              results.push({
+                category: updatedCategory,
+                action: 'reactivated'
+              });
+              updatedCount++;
+            } else {
+              results.push({
+                category: existingCategory,
+                action: 'skipped',
+                reason: 'No changes detected'
+              });
+              skippedCount++;
+            }
+          }
         } else {
           // Yeni kategori ekle
           const newCategory = new CategoryStock(categoryData);
           const savedCategory = await newCategory.save();
-          results.push(savedCategory);
+          results.push({
+            category: savedCategory,
+            action: 'added'
+          });
+          addedCount++;
         }
       } catch (itemError) {
         errors.push({
@@ -56,8 +110,14 @@ const addCategoryApiService = async (addedCategories) => {
 
     return {
       success: true,
-      message: `${results.length} kategori işlendi (eklendi/güncellendi)`,
+      message: `${results.length} kategori işlendi: ${addedCount} eklendi, ${updatedCount} güncellendi, ${skippedCount} atlandı`,
       data: results,
+      summary: {
+        total: results.length,
+        added: addedCount,
+        updated: updatedCount,
+        skipped: skippedCount
+      },
       errors: errors.length > 0 ? errors : undefined,
     };
   } catch (error) {
@@ -87,54 +147,60 @@ const addCategoryToStockService = async (categoryStockData) => {
         });
 
         if (existingCategory) {
-            // Var olan kategoriyi güncelle
-            const updatedCategory = await CategoryStock.findByIdAndUpdate(
-                existingCategory._id,
-                {
-                    categoryType: formattedData.categoryType,
-                    img: formattedData.img,
-                    status: formattedData.status || "active",
-                    updatedAt: new Date()
-                },
-                { new: true }
-            );
-
-            // Populate related information
-            await updatedCategory.populate([
-                {
-                    path: "storeId",
-                    select: "name category logo"
-                },
-                {
-                    path: "addedBy",
-                    select: "name email"
-                }
-            ]);
+            // Değişiklikleri kontrol et
+            const changes = compareCategoryFields(existingCategory, formattedData);
             
-            return updatedCategory;
+            if (Object.keys(changes).length > 0) {
+                // Değişiklik varsa güncelle
+                const updatedCategory = await CategoryStock.findByIdAndUpdate(
+                    existingCategory._id,
+                    {
+                        categoryType: formattedData.categoryType,
+                        img: formattedData.img,
+                        status: formattedData.status || "active",
+                        updatedAt: new Date()
+                    },
+                    { new: true }
+                );
+
+                return {
+                    success: true,
+                    message: "Kategori başarıyla güncellendi",
+                    data: updatedCategory,
+                    action: 'updated',
+                    changes: changes
+                };
+            } else {
+                return {
+                    success: true,
+                    message: "Kategori zaten mevcut, değişiklik yok",
+                    data: existingCategory,
+                    action: 'skipped',
+                    reason: 'No changes detected'
+                };
+            }
         } else {
             // Yeni kategori ekle
-            const newCategoryStock = new CategoryStock(formattedData);
-            await newCategoryStock.save();
-            
-            // Populate related information
-            await newCategoryStock.populate([
-                {
-                    path: "storeId",
-                    select: "name category logo"
-                },
-                {
-                    path: "addedBy",
-                    select: "name email"
-                }
-            ]);
-            
-            return newCategoryStock;
+            const newCategory = new CategoryStock(formattedData);
+            const savedCategory = await newCategory.save();
+
+            return {
+                success: true,
+                message: "Kategori başarıyla eklendi",
+                data: savedCategory,
+                action: 'added'
+            };
         }
     } catch (error) {
-        throw error; // Let controller handle specific error types
+        return {
+            success: false,
+            message: "Kategori işlenirken hata oluştu",
+            error: error.message
+        };
     }
 };
+
+
 
 const getCategoryStockService = async (filters = {}, page = 1, limit = 10) => {
     try {

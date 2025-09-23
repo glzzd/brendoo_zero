@@ -133,19 +133,29 @@ const ProductList = () => {
   // Format date
   const formatDate = (dateString) => {
     return new Date(dateString).toLocaleDateString('az-AZ', {
+      day: '2-digit',
+      month: '2-digit',
       year: 'numeric',
-      month: 'short',
-      day: 'numeric',
       hour: '2-digit',
       minute: '2-digit'
     });
   };
 
-  // Format price
-  const formatPrice = (price) => {
-    return new Intl.NumberFormat('az-AZ', {
+  // Format price with currency support
+  const formatPrice = (price, currency = 'AZN') => {
+    const currencyMap = {
+      'AZN': { locale: 'az-AZ', currency: 'AZN' },
+      'USD': { locale: 'en-US', currency: 'USD' },
+      'EUR': { locale: 'de-DE', currency: 'EUR' },
+      'RUB': { locale: 'ru-RU', currency: 'RUB' },
+      'TRY': { locale: 'tr-TR', currency: 'TRY' }
+    };
+    
+    const config = currencyMap[currency] || currencyMap['AZN'];
+    
+    return new Intl.NumberFormat(config.locale, {
       style: 'currency',
-      currency: 'AZN'
+      currency: config.currency
     }).format(price);
   };
 
@@ -262,120 +272,172 @@ const ProductList = () => {
           </div>
         ) : (
           <>
-            <div className="overflow-x-auto">
-              <table className="w-full">
-                <thead className="bg-gray-50">
-                  <tr>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Məhsul
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Mağaza
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Kateqoriya
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Qiymət
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Tarix
-                    </th>
-                    <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Əməliyyatlar
-                    </th>
-                  </tr>
-                </thead>
-                <tbody className="bg-white divide-y divide-gray-200">
-                  {products.map((product) => (
-                    <tr key={product._id} className="hover:bg-gray-50">
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="flex items-center">
-                          <div className="flex-shrink-0 h-10 w-10">
-                            {product.image ? (
-                              <img
-                                className="h-10 w-10 rounded-lg object-cover"
-                                src={product.image}
-                                alt={product.name}
-                                onError={(e) => {
-                                  e.target.style.display = 'none';
-                                  e.target.nextSibling.style.display = 'flex';
-                                }}
-                              />
-                            ) : null}
-                            <div 
-                              className="h-10 w-10 bg-gray-100 rounded-lg flex items-center justify-center"
-                              style={{ display: product.image ? 'none' : 'flex' }}
-                            >
-                              <Package className="h-5 w-5 text-gray-400" />
-                            </div>
-                          </div>
-                          <div className="ml-4">
-                            <div className="text-sm font-medium text-gray-900">
-                              {product.name}
-                            </div>
-                            <div className="text-sm text-gray-500">
-                              {product.brand}
-                            </div>
-                          </div>
-                        </div>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="flex items-center">
-                          <Store className="h-4 w-4 text-gray-400 mr-2" />
-                          <span className="text-sm text-gray-900">
-                            {product.storeId?.name || 'Bilinməyən'}
-                          </span>
-                        </div>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="flex items-center">
-                          <Tag className="h-4 w-4 text-gray-400 mr-2" />
-                          <span className="text-sm text-gray-900">
-                            {product.categoryName || 'Kateqoriya yoxdur'}
-                          </span>
-                        </div>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <span className="text-sm font-medium text-gray-900">
-                          {product.price ? formatPrice(product.price) : 'Qiymət yoxdur'}
-                        </span>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="flex items-center">
-                          <Calendar className="h-4 w-4 text-gray-400 mr-2" />
-                          <span className="text-sm text-gray-500">
-                            {formatDate(product.createdAt)}
-                          </span>
-                        </div>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                        <div className="flex items-center justify-end gap-2">
-                          <button
-                            className="text-blue-600 hover:text-blue-900 p-1 rounded"
-                            title="Bax"
-                          >
-                            <Eye className="h-4 w-4" />
-                          </button>
-                          <button
-                            className="text-green-600 hover:text-green-900 p-1 rounded"
-                            title="Düzəliş et"
-                          >
-                            <Edit className="h-4 w-4" />
-                          </button>
-                          <button
-                            onClick={() => handleDeleteProduct(product._id)}
-                            className="text-red-600 hover:text-red-900 p-1 rounded"
-                            title="Sil"
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </button>
-                        </div>
-                      </td>
+            <div className="bg-white shadow-lg rounded-lg overflow-hidden">
+              <div className="overflow-x-auto">
+                <table className="min-w-full divide-y divide-gray-200">
+                  <thead className="bg-gray-50">
+                    <tr>
+                      <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Məhsul
+                      </th>
+                      <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Mağaza
+                      </th>
+                      <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Kateqoriya
+                      </th>
+                      <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Qiymət
+                      </th>
+                      <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Yaradılma / Yenilənmə
+                      </th>
+                      <th scope="col" className="relative px-6 py-3">
+                        <span className="sr-only">Əməliyyatlar</span>
+                      </th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
+                  </thead>
+                  <tbody className="bg-white divide-y divide-gray-200">
+                    {products.map((product) => (
+                      <tr key={product._id} className="hover:bg-gray-50 transition-colors duration-150">
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <div className="flex items-center">
+                            <div className="flex-shrink-0 h-12 w-12">
+                              {product.images && product.images.length > 0 ? (
+                                <img
+                                  className="h-12 w-12 rounded-lg object-cover border border-gray-200 shadow-sm"
+                                  src={(() => {
+                                    const imgSrc = product.images[0];
+                                    if (!imgSrc) return "";
+                                    
+                                    // Clean the URL
+                                    const cleanUrl = (imgSrc || "").toString().trim().replace(/^["'`\s]+|["'`\s]+$/g, "");
+                                    
+                                    // If already a data URL, return as is
+                                    if (cleanUrl.startsWith("data:")) return cleanUrl;
+                                    
+                                    // If HTTP URL, return as is
+                                    if (cleanUrl.startsWith("http")) return cleanUrl;
+                                    
+                                    // If base64 string, convert to data URL
+                                    if (
+                                      cleanUrl.startsWith("/9j/") ||
+                                      cleanUrl.startsWith("iVBOR") ||
+                                      cleanUrl.startsWith("R0lGOD") ||
+                                      cleanUrl.startsWith("UklGR") ||
+                                      cleanUrl.match(/^[A-Za-z0-9+/=]+$/)
+                                    ) {
+                                      return `data:image/jpeg;base64,${cleanUrl}`;
+                                    }
+                                    
+                                    return cleanUrl;
+                                  })()}
+                                  alt={product.name}
+                                  onError={(e) => {
+                                    e.target.style.display = 'none';
+                                    e.target.nextSibling.style.display = 'flex';
+                                  }}
+                                />
+                              ) : null}
+                              <div 
+                                className="h-12 w-12 bg-gradient-to-br from-gray-100 to-gray-200 rounded-lg flex items-center justify-center shadow-sm border border-gray-200"
+                                style={{ display: (product.images && product.images.length > 0) ? 'none' : 'flex' }}
+                              >
+                                <Package className="h-6 w-6 text-gray-400" />
+                              </div>
+                            </div>
+                            <div className="ml-4">
+                              <div className="text-sm font-medium text-gray-900 line-clamp-2">
+                                {product.name}
+                              </div>
+                              <div className="text-sm text-gray-500">
+                                {product.brand}
+                              </div>
+                            </div>
+                          </div>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <div className="flex items-center">
+                            <div className="flex-shrink-0">
+                              <div className="h-8 w-8 bg-blue-100 rounded-full flex items-center justify-center">
+                                <Store className="h-4 w-4 text-blue-600" />
+                              </div>
+                            </div>
+                            <div className="ml-3">
+                              <div className="text-sm font-medium text-gray-900">
+                                {product.store || 'Bilinməyən'}
+                              </div>
+                            </div>
+                          </div>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                            <Tag className="h-3 w-3 mr-1" />
+                            {product.category || 'Kateqoriya yoxdur'}
+                          </span>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <div className="text-sm font-semibold text-gray-900">
+                            {product.price ? (
+                              <div className="space-y-1">
+                                <div>{formatPrice(product.price, product.currency)}</div>
+                                {product.priceInRubles && product.currency !== 'RUB' && (
+                                  <div className="text-xs text-gray-500">
+                                    ≈ {formatPrice(product.priceInRubles, 'RUB')}
+                                  </div>
+                                )}
+                              </div>
+                            ) : (
+                              <span className="text-gray-400 italic">Qiymət yoxdur</span>
+                            )}
+                          </div>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <div className="text-sm text-gray-900">
+                            <div className="flex items-center mb-1">
+                              <div className="h-2 w-2 bg-green-400 rounded-full mr-2"></div>
+                              <span className="text-xs text-gray-500 mr-2">Yaradılıb:</span>
+                              <span className="text-sm font-medium">
+                                {formatDate(product.createdAt)}
+                              </span>
+                            </div>
+                            <div className="flex items-center">
+                              <div className="h-2 w-2 bg-blue-400 rounded-full mr-2"></div>
+                              <span className="text-xs text-gray-500 mr-2">Yenilənib:</span>
+                              <span className="text-sm font-medium">
+                                {formatDate(product.updatedAt)}
+                              </span>
+                            </div>
+                          </div>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                          <div className="flex items-center justify-end space-x-2">
+                            <button
+                              className="inline-flex items-center p-2 border border-transparent rounded-full text-blue-600 bg-blue-100 hover:bg-blue-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors duration-150"
+                              title="Bax"
+                            >
+                              <Eye className="h-4 w-4" />
+                            </button>
+                            <button
+                              className="inline-flex items-center p-2 border border-transparent rounded-full text-green-600 bg-green-100 hover:bg-green-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 transition-colors duration-150"
+                              title="Düzəliş et"
+                            >
+                              <Edit className="h-4 w-4" />
+                            </button>
+                            <button
+                              onClick={() => handleDeleteProduct(product._id)}
+                              className="inline-flex items-center p-2 border border-transparent rounded-full text-red-600 bg-red-100 hover:bg-red-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 transition-colors duration-150"
+                              title="Sil"
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
             </div>
 
             {/* Pagination */}
@@ -420,22 +482,86 @@ const ProductList = () => {
                         Əvvəlki
                       </button>
                       
-                      {Array.from({ length: Math.min(5, pagination.totalPages) }, (_, i) => {
-                        const pageNum = i + 1;
-                        return (
-                          <button
-                            key={pageNum}
-                            onClick={() => handlePageChange(pageNum)}
-                            className={`relative inline-flex items-center px-4 py-2 border text-sm font-medium ${
-                              pageNum === pagination.currentPage
-                                ? 'z-10 bg-blue-50 border-blue-500 text-blue-600'
-                                : 'bg-white border-gray-300 text-gray-500 hover:bg-gray-50'
-                            }`}
-                          >
-                            {pageNum}
-                          </button>
-                        );
-                      })}
+                      {(() => {
+                        const { currentPage, totalPages } = pagination;
+                        const pages = [];
+                        
+                        // Always show first page
+                        if (totalPages > 0) {
+                          pages.push(
+                            <button
+                              key={1}
+                              onClick={() => handlePageChange(1)}
+                              className={`relative inline-flex items-center px-4 py-2 border text-sm font-medium ${
+                                1 === currentPage
+                                  ? 'z-10 bg-blue-50 border-blue-500 text-blue-600'
+                                  : 'bg-white border-gray-300 text-gray-500 hover:bg-gray-50'
+                              }`}
+                            >
+                              1
+                            </button>
+                          );
+                        }
+                        
+                        // Show ellipsis if needed
+                        if (currentPage > 4) {
+                          pages.push(
+                            <span key="ellipsis1" className="relative inline-flex items-center px-4 py-2 border border-gray-300 bg-white text-sm font-medium text-gray-700">
+                              ...
+                            </span>
+                          );
+                        }
+                        
+                        // Show pages around current page
+                        const start = Math.max(2, currentPage - 1);
+                        const end = Math.min(totalPages - 1, currentPage + 1);
+                        
+                        for (let i = start; i <= end; i++) {
+                          if (i !== 1 && i !== totalPages) {
+                            pages.push(
+                              <button
+                                key={i}
+                                onClick={() => handlePageChange(i)}
+                                className={`relative inline-flex items-center px-4 py-2 border text-sm font-medium ${
+                                  i === currentPage
+                                    ? 'z-10 bg-blue-50 border-blue-500 text-blue-600'
+                                    : 'bg-white border-gray-300 text-gray-500 hover:bg-gray-50'
+                                }`}
+                              >
+                                {i}
+                              </button>
+                            );
+                          }
+                        }
+                        
+                        // Show ellipsis if needed
+                        if (currentPage < totalPages - 3) {
+                          pages.push(
+                            <span key="ellipsis2" className="relative inline-flex items-center px-4 py-2 border border-gray-300 bg-white text-sm font-medium text-gray-700">
+                              ...
+                            </span>
+                          );
+                        }
+                        
+                        // Always show last page if more than 1 page
+                        if (totalPages > 1) {
+                          pages.push(
+                            <button
+                              key={totalPages}
+                              onClick={() => handlePageChange(totalPages)}
+                              className={`relative inline-flex items-center px-4 py-2 border text-sm font-medium ${
+                                totalPages === currentPage
+                                  ? 'z-10 bg-blue-50 border-blue-500 text-blue-600'
+                                  : 'bg-white border-gray-300 text-gray-500 hover:bg-gray-50'
+                              }`}
+                            >
+                              {totalPages}
+                            </button>
+                          );
+                        }
+                        
+                        return pages;
+                      })()}
                       
                       <button
                         onClick={() => handlePageChange(pagination.currentPage + 1)}

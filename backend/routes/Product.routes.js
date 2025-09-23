@@ -1,41 +1,46 @@
 const express = require("express");
 const {
-  addProductToStock,
+  createProduct,
+  bulkCreateProducts,
   getProducts,
   getProductById,
   updateProduct,
   deleteProduct,
-  bulkAddProducts,
-  getProductsByStoreName,
-  syncProductsFromStoreEndpoint,
-  syncAllStoresProducts
+  getProductsByStore,
+  getProductsByCategory,
+  getProductsByBrand,
+  searchProducts,
+  getProductStats
 } = require("../controllers/Product.controller");
 const authMiddleware = require("../middlewares/authMiddleware");
 
 const router = express.Router();
 
 // GET /api/v1/products/store/:storeName - Get products by store name (no auth required)
-router.get("/store/:storeName", getProductsByStoreName);
+router.get("/store/:storeName", getProductsByStore);
 
-// All other routes require authentication
+// GET /api/v1/products/category/:categoryName - Get products by category
+router.get("/category/:categoryName", getProductsByCategory);
 
+// GET /api/v1/products/brand/:brandName - Get products by brand
+router.get("/brand/:brandName", getProductsByBrand);
 
-// POST /api/v1/products - Add single product to stock
-router.post("/add-products", addProductToStock);
+// GET /api/v1/products/search - Search products
+router.get("/search", searchProducts);
 
-// POST /api/v1/products/bulk - Bulk add products (for synchronization)
-router.post("/bulk", bulkAddProducts);
+// GET /api/v1/products/stats - Get product statistics
+router.get("/stats", getProductStats);
 
-// POST /api/v1/products/sync/store/:storeId - Sync products from specific store endpoint
-router.post("/sync/store/:storeId", syncProductsFromStoreEndpoint);
+// POST /api/v1/products - Create single product
+router.post("/add-products", createProduct);
 
-// POST /api/v1/products/sync/all - Sync products from all stores
-router.post("/sync/all", syncAllStoresProducts);
+// POST /api/v1/products/bulk - Bulk create products
+router.post("/bulk", bulkCreateProducts);
 
 // GET /api/v1/products - Get products with pagination and filtering
 router.get("/", getProducts);
 
-// GET /api/v1/products/:id - Get product xby ID
+// GET /api/v1/products/:id - Get product by ID
 router.get("/:id", getProductById);
 
 // PUT /api/v1/products/:id - Update product

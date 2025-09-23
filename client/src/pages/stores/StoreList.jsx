@@ -1942,36 +1942,52 @@ const ProductCard = ({ product, images }) => {
               {product?.discountedPrice ? (
                 <>
                   <span className="text-lg font-bold text-red-600">
-                    {product.discountedPrice.toString().endsWith('00') 
-                      ? product.discountedPrice.toString().slice(0, -2) + '.' + product.discountedPrice.toString().slice(-2)
-                      : (product.discountedPrice.toString().length === 3 && !product.discountedPrice.toString().endsWith('00')
-                          ? product.discountedPrice + '.00'
-                          : product.discountedPrice)} AZN
+                    {(() => {
+                      const discountedPrice = Number(product.discountedPrice);
+                      if (isNaN(discountedPrice)) return 'N/A';
+                      const priceStr = discountedPrice.toString();
+                      return priceStr.endsWith('00') 
+                        ? priceStr.slice(0, -2) + '.' + priceStr.slice(-2)
+                        : (priceStr.length === 3 && !priceStr.endsWith('00')
+                            ? discountedPrice + '.00'
+                            : discountedPrice);
+                    })()} AZN
                   </span>
                   <span className="text-sm text-gray-400 line-through">
-                    {product.price.toString().endsWith('00') 
-                      ? product.price.toString().slice(0, -2) + '.' + product.price.toString().slice(-2)
-                      : (product.price.toString().length === 3 && !product.price.toString().endsWith('00')
-                          ? product.price + '.00'
-                          : product.price)} AZN
+                    {(() => {
+                      const price = Number(product.price);
+                      if (isNaN(price)) return 'N/A';
+                      const priceStr = price.toString();
+                      return priceStr.endsWith('00') 
+                        ? priceStr.slice(0, -2) + '.' + priceStr.slice(-2)
+                        : (priceStr.length === 3 && !priceStr.endsWith('00')
+                            ? price + '.00'
+                            : price);
+                    })()} AZN
                   </span>
                   <span className="bg-red-100 text-red-600 px-2 py-1 rounded-full text-xs font-bold">
                     -
-                    {Math.round(
-                      ((product.price - product.discountedPrice) /
-                        product.price) *
-                        100
-                    )}
+                    {(() => {
+                      const price = Number(product.price);
+                      const discountedPrice = Number(product.discountedPrice);
+                      if (isNaN(price) || isNaN(discountedPrice) || price === 0) return '0';
+                      return Math.round(((price - discountedPrice) / price) * 100);
+                    })()}
                     %
                   </span>
                 </>
               ) : (
                 <span className="text-lg font-bold text-green-600">
-                  {product.price.toString().endsWith('00') 
-                    ? product.price.toString().slice(0, -2) + '.' + product.price.toString().slice(-2)
-                    : (product.price.toString().length === 3 && !product.price.toString().endsWith('00')
-                        ? product.price + '.00'
-                        : product.price)} AZN
+                  {(() => {
+                    const price = Number(product.price);
+                    if (isNaN(price)) return 'N/A';
+                    const priceStr = price.toString();
+                    return priceStr.endsWith('00') 
+                      ? priceStr.slice(0, -2) + '.' + priceStr.slice(-2)
+                      : (priceStr.length === 3 && !priceStr.endsWith('00')
+                          ? price + '.00'
+                          : price);
+                  })()} AZN
                 </span>
               )}
             </div>

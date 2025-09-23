@@ -1944,49 +1944,47 @@ const ProductCard = ({ product, images }) => {
                   <span className="text-lg font-bold text-red-600">
                     {(() => {
                       const discountedPrice = Number(product.discountedPrice);
-                      if (isNaN(discountedPrice)) return 'N/A';
+                      if (isNaN(discountedPrice) || discountedPrice === null || discountedPrice === undefined) return 'N/A';
                       const priceStr = discountedPrice.toString();
                       return priceStr.endsWith('00') 
                         ? priceStr.slice(0, -2) + '.' + priceStr.slice(-2)
                         : (priceStr.length === 3 && !priceStr.endsWith('00')
-                            ? discountedPrice + '.00'
-                            : discountedPrice);
+                            ? discountedPrice.toFixed(2)
+                            : discountedPrice.toString());
                     })()} AZN
                   </span>
                   <span className="text-sm text-gray-400 line-through">
                     {(() => {
                       const price = Number(product.price);
-                      if (isNaN(price)) return 'N/A';
+                      if (isNaN(price) || price === null || price === undefined) return 'N/A';
                       const priceStr = price.toString();
                       return priceStr.endsWith('00') 
                         ? priceStr.slice(0, -2) + '.' + priceStr.slice(-2)
                         : (priceStr.length === 3 && !priceStr.endsWith('00')
-                            ? price + '.00'
-                            : price);
+                            ? price.toFixed(2)
+                            : price.toString());
                     })()} AZN
                   </span>
                   <span className="bg-red-100 text-red-600 px-2 py-1 rounded-full text-xs font-bold">
-                    -
-                    {(() => {
+                    -{(() => {
                       const price = Number(product.price);
                       const discountedPrice = Number(product.discountedPrice);
-                      if (isNaN(price) || isNaN(discountedPrice) || price === 0) return '0';
-                      return Math.round(((price - discountedPrice) / price) * 100);
-                    })()}
-                    %
+                      if (isNaN(price) || isNaN(discountedPrice) || price === 0 || price === null || price === undefined || discountedPrice === null || discountedPrice === undefined) return '0';
+                      return Math.round(((price - discountedPrice) / price) * 100).toString();
+                    })()}%
                   </span>
                 </>
               ) : (
                 <span className="text-lg font-bold text-green-600">
                   {(() => {
                     const price = Number(product.price);
-                    if (isNaN(price)) return 'N/A';
+                    if (isNaN(price) || price === null || price === undefined) return 'N/A';
                     const priceStr = price.toString();
                     return priceStr.endsWith('00') 
                       ? priceStr.slice(0, -2) + '.' + priceStr.slice(-2)
                       : (priceStr.length === 3 && !priceStr.endsWith('00')
-                          ? price + '.00'
-                          : price);
+                          ? price.toFixed(2)
+                          : price.toString());
                   })()} AZN
                 </span>
               )}

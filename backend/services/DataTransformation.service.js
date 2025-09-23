@@ -1,4 +1,5 @@
 const mongoose = require('mongoose');
+const { formatPrice } = require('../utils/priceFormatter');
 
 class DataTransformationService {
   /**
@@ -21,10 +22,10 @@ class DataTransformationService {
       const transformedProduct = {
         name: zaraProduct.name?.trim() || '',
         brand: zaraProduct.brand?.toLowerCase()?.trim() || 'zara',
-        price: this.convertPrice(zaraProduct.price),
-        priceInRubles: zaraProduct.price || 0, // Assuming Zara price is in rubles
+        price: formatPrice(zaraProduct.price),
+        priceInRubles: formatPrice(zaraProduct.price) || 0, // Assuming Zara price is in rubles
         description: zaraProduct.description?.trim() || '',
-        discountedPrice: zaraProduct.discountedPrice || null,
+        discountedPrice: zaraProduct.discountedPrice ? formatPrice(zaraProduct.discountedPrice) : null,
         imageUrl: cleanedImages,
         colors: transformedColors,
         sizes: transformedSizes,

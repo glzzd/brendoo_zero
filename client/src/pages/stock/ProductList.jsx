@@ -143,6 +143,13 @@ const ProductList = () => {
 
   // Format price with currency support
   const formatPrice = (price, currency = 'AZN') => {
+    // Handle null, undefined, or NaN values
+    if (price === null || price === undefined || isNaN(Number(price))) {
+      return 'N/A';
+    }
+    
+    const numericPrice = Number(price);
+    
     const currencyMap = {
       'AZN': { locale: 'az-AZ', currency: 'AZN' },
       'USD': { locale: 'en-US', currency: 'USD' },
@@ -153,10 +160,15 @@ const ProductList = () => {
     
     const config = currencyMap[currency] || currencyMap['AZN'];
     
-    return new Intl.NumberFormat(config.locale, {
-      style: 'currency',
-      currency: config.currency
-    }).format(price);
+    try {
+      return new Intl.NumberFormat(config.locale, {
+        style: 'currency',
+        currency: config.currency
+      }).format(numericPrice);
+    } catch (error) {
+      console.warn('Error formatting price:', error);
+      return `${numericPrice.toFixed(2)} ${currency}`;
+    }
   };
 
   return (

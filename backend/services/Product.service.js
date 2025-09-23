@@ -1,6 +1,7 @@
 const Product = require("../models/Product.model");
 const mongoose = require("mongoose");
-const { calculatePriceInRubles } = require("../utils/priceCalculator");
+const { calculatePriceInRubles } = require('../utils/priceCalculator');
+const { formatPrice } = require('../utils/priceFormatter');
 
 // Helper function to normalize size data
 const normalizeSizes = (sizes) => {
@@ -175,10 +176,10 @@ const processSingleProduct = async (productData) => {
     const normalizedData = {
       name: productData.name.trim().toLowerCase(),
       brand: productData.brand.trim().toLowerCase(),
-      price: parseFloat(productData.price),
+      price: formatPrice(productData.price),
       currency: productData.currency ? productData.currency.toUpperCase() : 'AZN',
-      priceInRubles: calculatePriceInRubles(parseFloat(productData.price)),
-      discountedPrice: productData.discountedPrice ? parseFloat(productData.discountedPrice) : null,
+      priceInRubles: calculatePriceInRubles(formatPrice(productData.price)),
+      discountedPrice: productData.discountedPrice ? formatPrice(productData.discountedPrice) : null,
       description: productData.description || "",
       images: normalizeImages(productData.images || productData.imageUrl),
       sizes: normalizeSizes(productData.sizes),
@@ -331,8 +332,8 @@ const bulkCreateProductsService = async (products) => {
         const normalizedData = {
           name: productData.name.trim(),
           brand: productData.brand.trim().toUpperCase(),
-          price: parseFloat(productData.price),
-          discountedPrice: productData.discountedPrice ? parseFloat(productData.discountedPrice) : null,
+          price: formatPrice(productData.price),
+          discountedPrice: productData.discountedPrice ? formatPrice(productData.discountedPrice) : null,
           description: productData.description || "",
           images: normalizeImages(productData.images || productData.imageUrl),
           sizes: normalizeSizes(productData.sizes),
@@ -507,10 +508,9 @@ const updateProductService = async (productId, updateData) => {
     
     if (updateData.name) normalizedData.name = updateData.name.trim();
     if (updateData.brand) normalizedData.brand = updateData.brand.trim().toUpperCase();
-    if (updateData.price !== undefined) normalizedData.price = parseFloat(updateData.price);
-    if (updateData.discountedPrice !== undefined) {
-      normalizedData.discountedPrice = updateData.discountedPrice ? parseFloat(updateData.discountedPrice) : null;
-    }
+    if (updateData.price !== undefined) normalizedData.price = formatPrice(updateData.price);
+    if (updateData.discountedPrice !== undefined) 
+      normalizedData.discountedPrice = updateData.discountedPrice ? formatPrice(updateData.discountedPrice) : null;
     if (updateData.description !== undefined) normalizedData.description = updateData.description;
     if (updateData.images || updateData.imageUrl) {
       normalizedData.images = normalizeImages(updateData.images || updateData.imageUrl);

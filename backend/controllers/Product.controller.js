@@ -477,6 +477,106 @@ const getProductStats = async (req, res) => {
   }
 };
 
+// Export products as XML by store name
+const exportProductsAsXml = async (req, res) => {
+  try {
+    const { store } = req.query;
+    
+    if (!store) {
+      return res.status(400).json({
+        success: false,
+        message: "Store parameter is required"
+      });
+    }
+
+    console.log(`📤 Exporting products as XML for store: ${store}`);
+    
+    // Get products by store name (case insensitive)
+    const result = await getProductsByStoreService(store.toLowerCase());
+    
+    // getProductsByStoreService returns { data, pagination, store } directly
+    const products = result.data;
+    
+    // Generate XML content
+    let xmlContent = '<?xml version="1.0" encoding="UTF-8"?>\n';
+    xmlContent += '<products>\n';
+    
+    products.forEach(product => {
+      xmlContent += '  <product>\n';
+      xmlContent += `    <id>${product._id || ''}</id>\n`;
+      xmlContent += `    <name><![CDATA[${product.name || ''}]]></name>\n`;
+      xmlContent += `    <description><![CDATA[${product.description || ''}]]></description>\n`;
+      xmlContent += `    <price>${product.price || 0}</price>\n`;
+      xmlContent += `    <discountedPrice>${product.discountedPrice || 0}</discountedPrice>\n`;
+      xmlContent += `    <priceInRubles>${product.priceInRubles || 0}</priceInRubles>\n`;
+      xmlContent += `    <discountPercentage>${product.discountPercentage || 0}</discountPercentage>\n`;
+      xmlContent += `    <currency>${product.currency || ''}</currency>\n`;
+      xmlContent += `    <store>${product.store || ''}</store>\n`;
+      xmlContent += `    <category>${product.category || ''}</category>\n`;
+      xmlContent += `    <brand>${product.brand || ''}</brand>\n`;
+      
+      // Handle images array
+      if (product.images && Array.isArray(product.images) && product.images.length > 0) {
+        xmlContent += '    <images>\n';
+        product.images.forEach(image => {
+          xmlContent += `      <image><![CDATA[${image}]]></image>\n`;
+        });
+        xmlContent += '    </images>\n';
+      } else {
+        xmlContent += '    <images></images>\n';
+      }
+      
+      // Handle sizes array
+      if (product.sizes && Array.isArray(product.sizes) && product.sizes.length > 0) {
+        xmlContent += '    <sizes>\n';
+        product.sizes.forEach(size => {
+          xmlContent += '      <size>\n';
+          xmlContent += `        <sizeName>${size.sizeName || ''}</sizeName>\n`;
+          xmlContent += `        <onStock>${size.onStock || false}</onStock>\n`;
+          xmlContent += '      </size>\n';
+        });
+        xmlContent += '    </sizes>\n';
+      } else {
+        xmlContent += '    <sizes></sizes>\n';
+      }
+      
+      // Handle colors array
+      if (product.colors && Array.isArray(product.colors) && product.colors.length > 0) {
+        xmlContent += '    <colors>\n';
+        product.colors.forEach(color => {
+          xmlContent += `      <color><![CDATA[${color}]]></color>\n`;
+        });
+        xmlContent += '    </colors>\n';
+      } else {
+        xmlContent += '    <colors></colors>\n';
+      }
+      
+      xmlContent += `    <stockStatus>${product.stockStatus || ''}</stockStatus>\n`;
+      xmlContent += `    <processedAt>${product.processedAt || ''}</processedAt>\n`;
+      xmlContent += `    <isActive>${product.isActive || false}</isActive>\n`;
+      xmlContent += `    <createdAt>${product.createdAt || ''}</createdAt>\n`;
+      xmlContent += `    <updatedAt>${product.updatedAt || ''}</updatedAt>\n`;
+      xmlContent += '  </product>\n';
+    });
+    
+    xmlContent += '</products>';
+
+    // Set response headers for XML download
+    res.setHeader('Content-Type', 'application/xml');
+    res.setHeader('Content-Disposition', `attachment; filename="${store}_products_${new Date().toISOString().split('T')[0]}.xml"`);
+    
+    res.status(200).send(xmlContent);
+    
+  } catch (error) {
+    console.error("❌ Error in exportProductsAsXml:", error);
+    res.status(500).json({
+      success: false,
+      message: "Server error occurred while exporting products as XML",
+      error: error.message
+    });
+  }
+};
+
 module.exports = {
   createProduct,
   bulkCreateProducts,
@@ -488,5 +588,6 @@ module.exports = {
   getProductsByCategory,
   getProductsByBrand,
   searchProducts,
-  getProductStats
+  getProductStats,
+  exportProductsAsXml
 };

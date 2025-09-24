@@ -425,8 +425,8 @@ const getProductsService = async (filters) => {
       pagination: {
         currentPage: filters.page,
         totalPages,
-        totalItems: totalCount,
-        itemsPerPage: filters.limit,
+        totalDocs: totalCount,
+        limit: filters.limit,
         hasNextPage: filters.page < totalPages,
         hasPrevPage: filters.page > 1
       },

@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from 'react';
-import { Search, Plus, Filter, Eye, Package, Store, Tag, Calendar, User } from 'lucide-react';
+import { Search, Plus, Filter, Eye, Package, Store, Tag, Calendar, User, Download } from 'lucide-react';
 import { toast } from 'sonner';
 import { useLanguage } from '../../contexts/LanguageContext';
 import ProductDetailModal from '../../components/modals/ProductDetailModal';
+import XmlExportModal from '../../components/modals/XmlExportModal';
 
 const ProductList = () => {
   const { language } = useLanguage();
@@ -24,6 +25,7 @@ const ProductList = () => {
   const [showFilters, setShowFilters] = useState(false);
   const [selectedProduct, setSelectedProduct] = useState(null);
   const [isProductModalOpen, setIsProductModalOpen] = useState(false);
+  const [isXmlExportModalOpen, setIsXmlExportModalOpen] = useState(false);
 
   // Fetch products
   const fetchProducts = async (page = 1, searchQuery = '', filterParams = {}) => {
@@ -31,7 +33,7 @@ const ProductList = () => {
       setLoading(true);
       const params = new URLSearchParams({
         page: page.toString(),
-        limit: pagination.limit.toString(),
+        limit: (pagination?.limit || 10).toString(),
         ...(searchQuery && { name: searchQuery }),
         ...filterParams
       });
@@ -202,10 +204,14 @@ const ProductList = () => {
             Filtrlər
           </button>
           
-          <button className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors">
-            <Plus className="h-4 w-4" />
-            Yeni Məhsul
+          <button
+            onClick={() => setIsXmlExportModalOpen(true)}
+            className="flex items-center gap-2 px-4 py-2 border border-green-300 bg-green-50 text-green-700 rounded-lg hover:bg-green-100 transition-colors"
+          >
+            <Download className="h-4 w-4" />
+            XML Export
           </button>
+         
         </div>
       </div>
 
@@ -471,13 +477,13 @@ const ProductList = () => {
                 <div className="hidden sm:flex-1 sm:flex sm:items-center sm:justify-between">
                   <div>
                     <p className="text-sm text-gray-700">
-                      <span className="font-medium">{((pagination.currentPage - 1) * pagination.limit) + 1}</span>
+                      <span className="font-medium">{String(((pagination.currentPage - 1) * pagination.limit) + 1)}</span>
                       {' - '}
                       <span className="font-medium">
-                        {Math.min(pagination.currentPage * pagination.limit, pagination.totalDocs)}
+                        {String(Math.min(pagination.currentPage * pagination.limit, pagination.totalDocs))}
                       </span>
                       {' / '}
-                      <span className="font-medium">{pagination.totalDocs}</span>
+                      <span className="font-medium">{String(pagination.totalDocs)}</span>
                       {' nəticə'}
                     </p>
                   </div>
@@ -594,6 +600,15 @@ const ProductList = () => {
           product={selectedProduct}
           isOpen={isProductModalOpen}
           onClose={closeProductModal}
+        />
+      )}
+
+      {/* XML Export Modal */}
+      {isXmlExportModalOpen && (
+        <XmlExportModal
+          isOpen={isXmlExportModalOpen}
+          onClose={() => setIsXmlExportModalOpen(false)}
+          stores={stores}
         />
       )}
     </div>

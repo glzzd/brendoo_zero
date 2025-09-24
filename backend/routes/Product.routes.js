@@ -10,11 +10,15 @@ const {
   getProductsByCategory,
   getProductsByBrand,
   searchProducts,
-  getProductStats
+  getProductStats,
+  exportProductsAsXml
 } = require("../controllers/Product.controller");
 const authMiddleware = require("../middlewares/authMiddleware");
 
 const router = express.Router();
+
+// GET /api/v1/products/export-xml - Export products as XML by store name
+router.get("/export-xml", exportProductsAsXml);
 
 // GET /api/v1/products/store/:storeName - Get products by store name (no auth required)
 router.get("/store/:storeName", getProductsByStore);

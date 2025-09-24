@@ -188,6 +188,7 @@ const processSingleProduct = async (productData) => {
       images: normalizeImages(productData.images || productData.imageUrl),
       sizes: normalizeSizes(productData.sizes),
       colors: normalizeColors(productData.colors),
+      productUrl: productData.productUrl || "",
       store: (productData.store || productData.storeName || "").toLowerCase(),
       category: (productData.category || productData.categoryName || "").toLowerCase(),
       processedAt: productData.processedAt || new Date().toLocaleTimeString()
@@ -342,6 +343,7 @@ const bulkCreateProductsService = async (products) => {
           images: normalizeImages(productData.images || productData.imageUrl),
           sizes: normalizeSizes(productData.sizes),
           colors: normalizeColors(productData.colors),
+          productUrl: productData.productUrl || "",
           store: (productData.store || productData.storeName || "").toLowerCase(),
           category: productData.category || productData.categoryName || "",
           processedAt: productData.processedAt || new Date().toLocaleTimeString()
@@ -412,7 +414,7 @@ const getProductsService = async (filters) => {
     const skip = (filters.page - 1) * filters.limit;
     
     // Select only necessary fields for better performance
-    const selectFields = 'name brand price currency priceInRubles discountedPrice category store images sizes colors stockStatus createdAt updatedAt';
+    const selectFields = 'name brand price currency priceInRubles discountedPrice category store images sizes colors productUrl stockStatus createdAt updatedAt';
     
     // Execute query with optimizations
     const [products, totalCount] = await Promise.all([
@@ -842,7 +844,7 @@ const getAllProductsByStoreService = async (storeName) => {
     };
 
     // Select only necessary fields for integration
-    const selectFields = 'name brand price currency priceInRubles discountedPrice category store images sizes colors stockStatus createdAt updatedAt';
+    const selectFields = 'name brand price currency priceInRubles discountedPrice category store images sizes colors productUrl stockStatus createdAt updatedAt';
 
     const products = await Product.find(query)
       .select(selectFields)

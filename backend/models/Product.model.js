@@ -75,6 +75,19 @@ const productSchema = new mongoose.Schema({
     type: [String],
     default: []
   },
+  productUrl: {
+    type: String,
+    trim: true,
+    default: "",
+    validate: {
+      validator: function(url) {
+        if (!url) return true; // Allow empty URLs
+        const urlRegex = /^(https?:\/\/)?([\da-z\.-]+)\.([a-z\.]{2,6})([\/\w \.-]*)*\/?$/;
+        return urlRegex.test(url);
+      },
+      message: 'Product URL must be a valid URL'
+    }
+  },
   store: {
     type: String,
     required: true,

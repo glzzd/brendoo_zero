@@ -50,34 +50,14 @@ const ProductDetailModal = ({ isOpen, onClose, product }) => {
     const config = currencyMap[currency] || currencyMap['AZN'];
     
     try {
-      // Əgər fiyatın sonunda sıfır yoxdursa, .00 əlavə et
-      let formattedPrice = numericPrice.toString();
-      if (!formattedPrice.includes('.')) {
-        formattedPrice += '.00';
-      } else {
-        // Əgər ondalık hissə 1 rəqəmdirsə, sıfır əlavə et
-        const decimalPart = formattedPrice.split('.')[1];
-        if (decimalPart.length === 1) {
-          formattedPrice += '0';
-        }
-      }
-      
       return new Intl.NumberFormat(config.locale, {
         style: 'currency',
-        currency: config.currency
-      }).format(parseFloat(formattedPrice));
+        currency: config.currency,
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2
+      }).format(numericPrice);
     } catch (error) {
-      // Əgər fiyatın sonunda sıfır yoxdursa, .00 əlavə et
-      let fallbackPrice = numericPrice.toString();
-      if (!fallbackPrice.includes('.')) {
-        fallbackPrice += '.00';
-      } else {
-        const decimalPart = fallbackPrice.split('.')[1];
-        if (decimalPart.length === 1) {
-          fallbackPrice += '0';
-        }
-      }
-      return `${fallbackPrice} ${currency}`;
+      return `${numericPrice.toFixed(2)} ${currency}`;
     }
   };
 
@@ -270,6 +250,11 @@ const ProductDetailModal = ({ isOpen, onClose, product }) => {
                       <p className="text-3xl font-bold text-green-600">
                         {formatPrice(product.price, product.currency)}
                       </p>
+                      {product.priceInRubles && product.currency !== 'RUB' && (
+                        <p className="text-lg text-blue-600 font-medium">
+                          ≈ {formatPrice(product.priceInRubles, 'RUB')}
+                        </p>
+                      )}
                       {product.originalPrice && product.originalPrice > product.price && (
                         <p className="text-lg text-gray-500 line-through">
                           {formatPrice(product.originalPrice, product.currency)}
@@ -283,6 +268,54 @@ const ProductDetailModal = ({ isOpen, onClose, product }) => {
                     )}
                   </div>
                 </div>
+
+                {/* Sizes Section */}
+                {product.sizes && product.sizes.length > 0 && (
+                  <div className="bg-purple-50 p-4 rounded-xl">
+                    <h3 className="font-semibold text-gray-900 mb-3">
+                      {t('Mövcud ölçülər', 'Available Sizes')}
+                    </h3>
+                    <div className="flex flex-wrap gap-2">
+                      {product.sizes.map((size, index) => (
+                        <span
+                          key={index}
+                          className={`px-3 py-1 rounded-full text-sm font-medium ${
+                            size.onStock !== false
+                              ? 'bg-green-100 text-green-800 border border-green-200'
+                              : 'bg-gray-100 text-gray-500 border border-gray-200 line-through'
+                          }`}
+                        >
+                          {typeof size === 'string' ? size : size.sizeName}
+                          {size.onStock === false && (
+                            <span className="ml-1 text-xs">({t('Stokda yoxdur', 'Out of stock')})</span>
+                          )}
+                        </span>
+                      ))}
+                    </div>
+                    <p className="text-xs text-gray-600 mt-2">
+                      {t('Yaşıl rəngli ölçülər stokdadır', 'Green colored sizes are in stock')}
+                    </p>
+                  </div>
+                )}
+
+                {/* Colors Section */}
+                {product.colors && product.colors.length > 0 && (
+                  <div className="bg-orange-50 p-4 rounded-xl">
+                    <h3 className="font-semibold text-gray-900 mb-3">
+                      {t('Mövcud rənglər', 'Available Colors')}
+                    </h3>
+                    <div className="flex flex-wrap gap-2">
+                      {product.colors.map((color, index) => (
+                        <span
+                          key={index}
+                          className="px-3 py-1 rounded-full text-sm font-medium bg-orange-100 text-orange-800 border border-orange-200"
+                        >
+                          {color}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                )}
 
                 {/* Product Info */}
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -334,19 +367,19 @@ const ProductDetailModal = ({ isOpen, onClose, product }) => {
                 )}
 
                 {/* Product URL */}
-                {product.url && (
+                {product.productUrl && (
                   <div className="bg-blue-50 p-4 rounded-xl">
                     <h3 className="font-semibold text-gray-900 mb-2">
                       {t('Məhsul linki', 'Product Link')}
                     </h3>
                     <a
-                      href={product.url}
+                      href={product.productUrl}
                       target="_blank"
                       rel="noopener noreferrer"
                       className="inline-flex items-center space-x-2 text-blue-600 hover:text-blue-800 transition-colors"
                     >
                       <ExternalLink className="h-4 w-4" />
-                      <span className="truncate max-w-xs">{product.url}</span>
+                      <span className="truncate max-w-xs">{product.productUrl}</span>
                     </a>
                   </div>
                 )}

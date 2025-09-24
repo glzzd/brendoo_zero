@@ -14,7 +14,7 @@ export default defineConfig({
     historyApiFallback: true,
     proxy: {
       '/api': {
-        target: 'http://localhost:5001',
+        target: 'http://localhost:5009',
         changeOrigin: true
       }
     }

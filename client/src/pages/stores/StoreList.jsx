@@ -91,7 +91,7 @@ const StoreList = () => {
         ...(sortDirection && { sortOrder: sortDirection }),
       });
 
-      const response = await fetch(`http://localhost:5001/api/v1/store?${queryParams}`, {
+      const response = await fetch(`http://localhost:5009/api/v1/store?${queryParams}`, {
         method: "GET",
         headers: {
           Authorization: `Bearer ${token}`,
@@ -164,7 +164,7 @@ const StoreList = () => {
 
   const handleStatusChange = async (storeId, newStatus) => {
     try {
-      const response = await fetch(`http://localhost:5001/api/v1/store/${storeId}/status`, {
+      const response = await fetch(`http://localhost:5009/api/v1/store/${storeId}/status`, {
         method: "PUT",
         headers: {
           Authorization: `Bearer ${token}`,
@@ -219,7 +219,7 @@ const StoreList = () => {
 
     try {
       if (deletingStoreId === "bulk") {
-        const response = await fetch("http://localhost:5001/api/v1/store/bulk-delete", {
+        const response = await fetch("http://localhost:5009/api/v1/store/bulk-delete", {
           method: "DELETE",
           headers: {
             Authorization: `Bearer ${token}`,
@@ -241,7 +241,7 @@ const StoreList = () => {
           toast.error(error.message || "Mağazalar silinərkən xəta baş verdi");
         }
       } else {
-        const response = await fetch(`http://localhost:5001/api/v1/store/${deletingStoreId}`, {
+        const response = await fetch(`http://localhost:5009/api/v1/store/${deletingStoreId}`, {
           method: "DELETE",
           headers: {
             Authorization: `Bearer ${token}`,

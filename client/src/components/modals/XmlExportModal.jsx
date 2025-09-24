@@ -14,7 +14,7 @@ const XmlExportModal = ({ isOpen, onClose, stores }) => {
 
     setIsExporting(true);
     try {
-      const response = await fetch(`http://localhost:5001/api/v1/products-stock/export-xml?store=${selectedStore.toLowerCase()}`, {
+      const response = await fetch(`http://localhost:5009/api/v1/products-stock/export-xml?store=${selectedStore.toLowerCase()}`, {
         method: 'GET',
         headers: {
           'Content-Type': 'application/xml',

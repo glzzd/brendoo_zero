@@ -12,9 +12,9 @@ Bu sənəd Brendoo sisteminin integration API-si üçün istifadə təlimatları
 
 **Təsvir:** Bu endpoint müəyyən mağazanın bütün aktiv məhsullarını paginasiyasız qaytarır.
 
-**Base URL:** `http://localhost:5001`
+**Base URL:** `http://localhost:5009`
 
-**Tam URL:** `http://localhost:5001/api/v1/products-stock/integration/store?store={mağaza_adı}`
+**Tam URL:** `http://localhost:5009/api/v1/products-stock/integration/store?store={mağaza_adı}`
 
 ## Parametrlər
 
@@ -35,19 +35,19 @@ Bu sənəd Brendoo sisteminin integration API-si üçün istifadə təlimatları
 ### 1. cURL ilə İstək
 
 ```bash
-curl -X GET "http://localhost:5001/api/v1/products-stock/integration/store?store=gosport"
+curl -X GET "http://localhost:5009/api/v1/products-stock/integration/store?store=gosport"
 ```
 
 ### 2. PowerShell ilə İstək
 
 ```powershell
-Invoke-WebRequest -Uri "http://localhost:5001/api/v1/products-stock/integration/store?store=gosport" -Method GET
+Invoke-WebRequest -Uri "http://localhost:5009/api/v1/products-stock/integration/store?store=gosport" -Method GET
 ```
 
 ### 3. JavaScript (Fetch API) ilə İstək
 
 ```javascript
-fetch('http://localhost:5001/api/v1/products-stock/integration/store?store=gosport')
+fetch('http://localhost:5009/api/v1/products-stock/integration/store?store=gosport')
   .then(response => response.json())
   .then(data => {
     console.log('Məhsullar:', data);
@@ -62,7 +62,7 @@ fetch('http://localhost:5001/api/v1/products-stock/integration/store?store=gospo
 ```python
 import requests
 
-url = "http://localhost:5001/api/v1/products-stock/integration/store"
+url = "http://localhost:5009/api/v1/products-stock/integration/store"
 params = {"store": "gosport"}
 
 response = requests.get(url, params=params)
@@ -181,8 +181,8 @@ API-də test edilmiş mağazalar:
 **Həll:** URL-də `?store=mağaza_adı` parametrini əlavə edin
 
 ```
-✗ Yanlış: http://localhost:5001/api/v1/products-stock/integration/store
-✓ Düzgün: http://localhost:5001/api/v1/products-stock/integration/store?store=gosport
+✗ Yanlış: http://localhost:5009/api/v1/products-stock/integration/store
+✓ Düzgün: http://localhost:5009/api/v1/products-stock/integration/store?store=gosport
 ```
 
 ### 2. Boş Nəticə
@@ -206,7 +206,7 @@ API-də test edilmiş mağazalar:
 async function syncStoreProducts(storeName) {
   try {
     const response = await fetch(
-      `http://localhost:5001/api/v1/products-stock/integration/store?store=${storeName}`
+      `http://localhost:5009/api/v1/products-stock/integration/store?store=${storeName}`
     );
     const data = await response.json();
     
@@ -233,7 +233,7 @@ async function compareStorePrices(stores) {
   
   for (const store of stores) {
     const response = await fetch(
-      `http://localhost:5001/api/v1/products-stock/integration/store?store=${store}`
+      `http://localhost:5009/api/v1/products-stock/integration/store?store=${store}`
     );
     const data = await response.json();
     
@@ -251,7 +251,7 @@ async function compareStorePrices(stores) {
 
 API ilə bağlı problemlər yaşadığınız halda:
 
-1. Server-in işlədiyini yoxlayın: `http://localhost:5001/test`
+1. Server-in işlədiyini yoxlayın: `http://localhost:5009/test`
 2. Parametrlərin düzgün göndərildiyini yoxlayın
 3. Mağaza adının düzgün yazıldığını təsdiqləyin
 

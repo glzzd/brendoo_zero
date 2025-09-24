@@ -38,7 +38,7 @@ const ProductList = () => {
         ...filterParams
       });
 
-      const response = await fetch(`http://localhost:5001/api/v1/products-stock?${params}`, {
+      const response = await fetch(`http://localhost:5009/api/v1/products-stock?${params}`, {
         headers: {
           'Authorization': `Bearer ${localStorage.getItem('token')}`
         }
@@ -63,7 +63,7 @@ const ProductList = () => {
   // Fetch stores for filter dropdown
   const fetchStores = async () => {
     try {
-      const response = await fetch('http://localhost:5001/api/v1/store', {
+      const response = await fetch('http://localhost:5009/api/v1/store', {
         headers: {
           'Authorization': `Bearer ${localStorage.getItem('token')}`
         }

@@ -56,8 +56,8 @@ const ScraperList = () => {
   };
 
   
-  const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:5001/api/v1';
-  const WS_BASE_URL = import.meta.env.VITE_WS_BASE_URL || 'http://localhost:5001';
+  const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:5009/api/v1';
+  const WS_BASE_URL = import.meta.env.VITE_WS_BASE_URL || 'http://localhost:5009';
 
   useEffect(() => {
     console.log('ScraperList useEffect triggered');

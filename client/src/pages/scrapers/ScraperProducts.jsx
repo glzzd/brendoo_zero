@@ -19,7 +19,7 @@ const ScraperProducts = () => {
   const [productSpecificScrapers, setProductSpecificScrapers] = useState([]);
   const [selectedScraper, setSelectedScraper] = useState('');
 
-  const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:5001/api/v1';
+  const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:5009/api/v1';
 
   useEffect(() => {
     console.log('useEffect triggered, scraperId:', scraperId);

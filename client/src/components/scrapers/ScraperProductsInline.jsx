@@ -15,7 +15,7 @@ const ScraperProductsInline = ({ scraperId }) => {
   const [scrapingQueue, setScrapingQueue] = useState([]);
   const [completedScraping, setCompletedScraping] = useState([]);
   const { token } = useAuth();
-  const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:5001/api/v1';
+  const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:5009/api/v1';
 
   const fetchProducts = async () => {
     if (!isExpanded || products.length > 0) return;

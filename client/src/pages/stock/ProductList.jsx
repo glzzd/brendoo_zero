@@ -34,7 +34,7 @@ const ProductList = () => {
       const params = new URLSearchParams({
         page: page.toString(),
         limit: (pagination?.limit || 10).toString(),
-        ...(searchQuery && { name: searchQuery }),
+        ...(searchQuery && searchQuery.trim() && { search: searchQuery.trim() }),
         ...filterParams
       });
 
@@ -82,17 +82,20 @@ const ProductList = () => {
     fetchStores();
   }, []);
 
-  // Handle search
+  // Handle search with proper debounce
   const handleSearch = (e) => {
     const value = e.target.value;
     setSearchTerm(value);
     
-    // Debounce search
-    const timeoutId = setTimeout(() => {
+    // Clear previous timeout
+    if (window.searchTimeout) {
+      clearTimeout(window.searchTimeout);
+    }
+    
+    // Set new timeout for debounce
+    window.searchTimeout = setTimeout(() => {
       fetchProducts(1, value, filters);
-    }, 500);
-
-    return () => clearTimeout(timeoutId);
+    }, 300);
   };
 
   // Handle filter change

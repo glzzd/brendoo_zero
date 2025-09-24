@@ -59,12 +59,16 @@ const buildQueryFilters = (filters) => {
   }
   
   if (filters.search) {
-    query.$or = [
-      { name: new RegExp(filters.search, 'i') },
-      { brand: new RegExp(filters.search, 'i') },
-      { description: new RegExp(filters.search, 'i') },
-      { category: new RegExp(filters.search, 'i') }
-    ];
+    // Optimize search with text index if available, otherwise use regex
+    const searchTerm = filters.search.trim();
+    if (searchTerm) {
+      query.$or = [
+        { name: { $regex: searchTerm, $options: 'i' } },
+        { brand: { $regex: searchTerm, $options: 'i' } },
+        { description: { $regex: searchTerm, $options: 'i' } },
+        { category: { $regex: searchTerm, $options: 'i' } }
+      ];
+    }
   }
   
   if (filters.minPrice !== undefined || filters.maxPrice !== undefined) {
@@ -407,9 +411,13 @@ const getProductsService = async (filters) => {
     // Calculate pagination
     const skip = (filters.page - 1) * filters.limit;
     
-    // Execute query
+    // Select only necessary fields for better performance
+    const selectFields = 'name brand price currency priceInRubles discountedPrice category store images sizes colors stockStatus createdAt updatedAt';
+    
+    // Execute query with optimizations
     const [products, totalCount] = await Promise.all([
       Product.find(query)
+        .select(selectFields)
         .sort(sortObj)
         .skip(skip)
         .limit(filters.limit)

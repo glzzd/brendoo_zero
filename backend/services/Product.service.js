@@ -829,6 +829,39 @@ const searchProductsService = async (searchQuery, options = {}) => {
   }
 };
 
+// Get all products by store without pagination (for integration)
+const getAllProductsByStoreService = async (storeName) => {
+  try {
+    if (!storeName) {
+      throw new Error("Store name is required");
+    }
+
+    const query = {
+      store: storeName.toLowerCase(),
+      isActive: true
+    };
+
+    // Select only necessary fields for integration
+    const selectFields = 'name brand price currency priceInRubles discountedPrice category store images sizes colors stockStatus createdAt updatedAt';
+
+    const products = await Product.find(query)
+      .select(selectFields)
+      .sort({ createdAt: -1 })
+      .lean();
+
+    return {
+      success: true,
+      store: storeName,
+      totalProducts: products.length,
+      data: products,
+      generatedAt: new Date().toISOString()
+    };
+  } catch (error) {
+    console.error("❌ Error in getAllProductsByStoreService:", error);
+    throw new Error(`Failed to retrieve products for store ${storeName}: ${error.message}`);
+  }
+};
+
 module.exports = {
   createProductService,
   bulkCreateProductsService,
@@ -839,5 +872,6 @@ module.exports = {
   getProductsByStoreService,
   getProductsByCategoryService,
   getProductsByBrandService,
-  searchProductsService
+  searchProductsService,
+  getAllProductsByStoreService
 };

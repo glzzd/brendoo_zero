@@ -8,7 +8,8 @@ const {
   getProductsByStoreService,
   getProductsByCategoryService,
   getProductsByBrandService,
-  searchProductsService
+  searchProductsService,
+  getAllProductsByStoreService
 } = require("../services/Product.service");
 
 // Create a single product
@@ -577,6 +578,35 @@ const exportProductsAsXml = async (req, res) => {
   }
 };
 
+// Get all products by store for integration (no pagination)
+const getAllProductsByStore = async (req, res) => {
+  try {
+    const { store } = req.query;
+    
+    if (!store) {
+      return res.status(400).json({
+        success: false,
+        message: "Store parameter is required"
+      });
+    }
+
+    const result = await getAllProductsByStoreService(store);
+    
+    res.status(200).json({
+      success: true,
+      message: `All products from ${store} store retrieved successfully`,
+      ...result
+    });
+  } catch (error) {
+    console.error("❌ Error in getAllProductsByStore:", error);
+    res.status(500).json({
+      success: false,
+      message: "Server error occurred while retrieving store products",
+      error: error.message
+    });
+  }
+};
+
 module.exports = {
   createProduct,
   bulkCreateProducts,
@@ -589,5 +619,6 @@ module.exports = {
   getProductsByBrand,
   searchProducts,
   getProductStats,
-  exportProductsAsXml
+  exportProductsAsXml,
+  getAllProductsByStore
 };

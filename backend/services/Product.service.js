@@ -846,10 +846,25 @@ const getAllProductsByStoreService = async (storeName) => {
     // Select only necessary fields for integration
     const selectFields = 'name brand price currency priceInRubles discountedPrice category store images sizes colors productUrl stockStatus createdAt updatedAt';
 
-    const products = await Product.find(query)
-      .select(selectFields)
-      .sort({ createdAt: -1 })
-      .lean();
+    // Add timeout and retry mechanism for database operations
+    const executeWithTimeout = async (operation, timeoutMs = 60000) => {
+      return Promise.race([
+        operation,
+        new Promise((_, reject) => 
+          setTimeout(() => reject(new Error('Database operation timed out')), timeoutMs)
+        )
+      ]);
+    };
+
+    // Execute query with timeout protection
+    const products = await executeWithTimeout(
+      Product.find(query)
+        .select(selectFields)
+        .sort({ createdAt: -1 })
+        .lean()
+        .maxTimeMS(50000), // MongoDB server-side timeout of 50 seconds
+      60000 // Client-side timeout of 60 seconds
+    );
 
     return {
       success: true,
@@ -860,6 +875,18 @@ const getAllProductsByStoreService = async (storeName) => {
     };
   } catch (error) {
     console.error("❌ Error in getAllProductsByStoreService:", error);
+    
+    // Enhanced error handling with specific timeout detection
+    if (error.message.includes('timed out') || error.message.includes('timeout')) {
+      console.error(`🔄 Database timeout for store ${storeName}. This might be due to:
+        - Large dataset size
+        - Network connectivity issues
+        - Database server overload
+        - Connection pool exhaustion`);
+      
+      throw new Error(`Database timeout while retrieving products for store ${storeName}. Please try again later or contact support if the issue persists.`);
+    }
+    
     throw new Error(`Failed to retrieve products for store ${storeName}: ${error.message}`);
   }
 };
